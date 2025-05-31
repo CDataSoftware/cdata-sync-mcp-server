@@ -1,0 +1,60 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - cdataBaseUrl
+    properties:
+      cdataBaseUrl:
+        type: string
+        description: CData Sync API endpoint URL
+        default: http://localhost:8181/api.rsc
+      cdataAuthToken:
+        type: string
+        description: CData Sync API authentication token (recommended)
+      cdataUsername:
+        type: string
+        description: CData Sync username (for basic auth)
+      cdataPassword:
+        type: string
+        description: CData Sync password (for basic auth)
+      mcpMode:
+        type: boolean
+        default: true
+        description: Enable MCP mode (stdio) vs SSE mode
+      debugHttp:
+        type: boolean
+        default: false
+        description: Enable HTTP request/response debugging
+      ssePort:
+        type: number
+        default: 3001
+        description: Port for SSE server (when MCP mode is false)
+    oneOf:
+      - required: [cdataBaseUrl, cdataAuthToken]
+      - required: [cdataBaseUrl, cdataUsername, cdataPassword]
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        CDATA_BASE_URL: config.cdataBaseUrl,
+        CDATA_AUTH_TOKEN: config.cdataAuthToken,
+        CDATA_USERNAME: config.cdataUsername,
+        CDATA_PASSWORD: config.cdataPassword,
+        MCP_MODE: config.mcpMode?.toString(),
+        DEBUG_HTTP: config.debugHttp?.toString(),
+        SSE_PORT: config.ssePort?.toString()
+      }
+    })
+  exampleConfig:
+    cdataBaseUrl: http://localhost:8181/api.rsc
+    cdataAuthToken: your-api-token-here
+    mcpMode: true
+    debugHttp: false
+    ssePort: 3001
