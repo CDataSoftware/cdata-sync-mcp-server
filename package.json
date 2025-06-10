@@ -4,6 +4,7 @@
   "description": "Model Context Protocol server for CData Sync with dual transport support",
   "main": "dist/index.js",
   "type": "module",
+  "module": "./src/index.ts",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
