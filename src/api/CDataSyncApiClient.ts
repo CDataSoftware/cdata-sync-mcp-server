@@ -23,8 +23,13 @@ export interface RequestOptions {
 }
 
 export class CDataSyncApiClient {
+  private credentialPromptHandler?: () => Promise<{username?: string; password?: string; authToken?: string}>;
 
   constructor(private config: CDataConfig) {}
+
+  setCredentialPromptHandler(handler: () => Promise<{username?: string; password?: string; authToken?: string}>) {
+    this.credentialPromptHandler = handler;
+  }
 
   async makeRequest<T = any>(
     endpoint: string,
@@ -33,32 +38,72 @@ export class CDataSyncApiClient {
     options?: RequestOptions
   ): Promise<T> {
     // Remove the $oas suffix for actual API calls
-    const baseUrl = this.config.baseUrl.replace('/$oas', '').replace('/\/$/', '');
+    const baseUrl = (this.config.baseUrl || '').replace('/$oas', '').replace('/\/$/', '');
     const url = `${baseUrl}${endpoint}`;
     
     const headers = this.buildHeaders(options?.headers);
     const timeout = options?.timeout || 30000;
 
+    const axiosConfig: AxiosRequestConfig = {
+      method,
+      url,
+      headers,
+      timeout,
+      // Custom response transformer to handle large numbers
+      transformResponse: [(data) => this.transformResponse(data)],
+      // Ensure request data with large numbers is handled properly
+      transformRequest: [(data) => this.transformRequest(data)],
+    };
+
+    // Only add data for methods that support it
+    if (method !== 'GET' && method !== 'DELETE') {
+      axiosConfig.data = data;
+    }
+
     try {
-      const axiosConfig: AxiosRequestConfig = {
-        method,
-        url,
-        headers,
-        timeout,
-        // Custom response transformer to handle large numbers
-        transformResponse: [(data) => this.transformResponse(data)],
-        // Ensure request data with large numbers is handled properly
-        transformRequest: [(data) => this.transformRequest(data)],
-      };
-
-      // Only add data for methods that support it
-      if (method !== 'GET' && method !== 'DELETE') {
-        axiosConfig.data = data;
-      }
-
       const response: AxiosResponse<T> = await axios(axiosConfig);
       return response.data;
     } catch (error: any) {
+      // Handle authentication errors
+      if (error.response?.status === 401 && this.credentialPromptHandler) {
+        // Check if we have no credentials configured
+        const hasCredentials = this.config.authToken || (this.config.username && this.config.password);
+        
+        if (!hasCredentials) {
+          try {
+            // Prompt for credentials
+            const credentials = await this.credentialPromptHandler();
+            
+            // Update config with new credentials
+            if (credentials.authToken) {
+              this.config.authToken = credentials.authToken;
+              this.config.username = undefined;
+              this.config.password = undefined;
+            } else if (credentials.username && credentials.password) {
+              this.config.username = credentials.username;
+              this.config.password = credentials.password;
+              this.config.authToken = undefined;
+            }
+            
+            // Retry the request with new credentials
+            const retryHeaders = this.buildHeaders(options?.headers);
+            const retryConfig: AxiosRequestConfig = {
+              ...axiosConfig,
+              headers: retryHeaders
+            };
+            
+            const retryResponse: AxiosResponse<T> = await axios(retryConfig);
+            return retryResponse.data;
+          } catch (retryError: any) {
+            // If retry fails, throw the original error
+            if (process.env.MCP_MODE) {
+              this.logError(method, url, retryError);
+            }
+            throw retryError;
+          }
+        }
+      }
+      
       // Enhanced error logging
       if (process.env.MCP_MODE) {
         this.logError(method, url, error);

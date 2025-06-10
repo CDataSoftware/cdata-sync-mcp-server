@@ -32,12 +32,14 @@ const log = (message: string) => {
 
 // Validate configuration
 async function validateConfig(config: CDataConfig): Promise<void> {
+  // Allow empty baseUrl - it can be configured later
   if (!config.baseUrl) {
-    throw new Error('CDATA_BASE_URL is required');
+    log('Warning: No CDATA_BASE_URL provided. Default is http://localhost:8181/api.rsc.');
   }
   
+  // Allow server to start without credentials - they will be prompted when needed
   if (!config.authToken && (!config.username || !config.password)) {
-    throw new Error('Either CDATA_AUTH_TOKEN or CDATA_USERNAME/CDATA_PASSWORD is required');
+    log('Warning: No authentication credentials provided. You will be prompted when accessing CData Sync.');
   }
 }
 

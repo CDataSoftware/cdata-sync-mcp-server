@@ -66,6 +66,15 @@ export class CDataMCPServer {
     this.useStderr = useStderr;
     this.syncClient = new CDataSyncApiClient(config);
     
+    // Set up credential prompt handler
+    this.syncClient.setCredentialPromptHandler(async () => {
+      // Return a prompt request that the MCP client will handle
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        "Authentication required. Please provide CData Sync credentials using the configure_sync_server tool with either authToken or username/password."
+      );
+    });
+    
     // Create config service with callback to update all services
     this.syncConfigService = new SyncConfigService(config, (newConfig) => {
       this.handleConfigChange(newConfig);
@@ -108,6 +117,14 @@ export class CDataMCPServer {
   private handleConfigChange(newConfig: CDataConfig): void {
     // Create new API client with new config
     this.syncClient = new CDataSyncApiClient(newConfig);
+    
+    // Re-set credential prompt handler
+    this.syncClient.setCredentialPromptHandler(async () => {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        "Authentication required. Please provide CData Sync credentials using the configure_sync_server tool with either authToken or username/password."
+      );
+    });
     
     // Recreate all services with new client
     this.connectionService = new ConnectionService(this.syncClient);

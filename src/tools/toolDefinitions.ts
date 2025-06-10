@@ -18,7 +18,7 @@ export interface Tool {
 export const configurationTools: Tool[] = [
   {
     name: "configure_sync_server",
-    description: "Configure the MCP server's connection to CData Sync. Use 'get' to view current configuration including auth type and connection status, or 'update' to modify connection settings. CRITICAL: Configuration changes take effect immediately and will reconnect all services. Test new credentials before applying. Cannot be used to view passwords or auth tokens for security reasons.",
+    description: "Configure the MCP server's connection to CData Sync. If not authenticated, you will be prompted for credentials. Use 'get' to view current configuration including auth type and connection status, or 'update' to modify connection settings. CRITICAL: Configuration changes take effect immediately and will reconnect all services. Test new credentials before applying. Cannot be used to view passwords or auth tokens for security reasons.",
     inputSchema: {
       type: "object",
       properties: {
@@ -30,8 +30,8 @@ export const configurationTools: Tool[] = [
         },
         baseUrl: {
           type: "string",
-          pattern: "^https?://[\\w\\.-]+(:\\d+)?(/.*)?$",
-          description: "Base URL for CData Sync API endpoint (e.g., 'http://localhost:8181/api.rsc'). Must be a valid HTTP/HTTPS URL. If path doesn't end with '/api.rsc', it will be appended automatically. Changes require reconnection."
+          pattern: "^(https?://[\\w\\.-]+(:\\d+)?(/.*)?)?$",
+          description: "Base URL for CData Sync API endpoint (e.g., 'http://localhost:8181/api.rsc'). Can be empty to clear the URL. When provided, must be a valid HTTP/HTTPS URL. If path doesn't end with '/api.rsc', it will be appended automatically. Changes require reconnection."
         },
         username: {
           type: "string",
@@ -64,7 +64,7 @@ export const configurationTools: Tool[] = [
 export const connectionTools: Tool[] = [
   {
     name: "read_connections",
-    description: "Access data source/destination connections that define how CData Sync connects to databases, APIs, and files. Use 'list' to see all available connections, 'get' to retrieve details about a specific connection, 'test' to verify credentials and connectivity. Connections must be created and tested before being used in jobs. Multiple jobs can use the same connection simultaneously. Note: For counting connections, use 'list' and count the results client-side.",
+    description: "Access data source/destination connections that define how CData Sync connects to databases, APIs, and files. If not authenticated with CData Sync, you will be prompted for credentials. Use 'list' to see all available connections, 'get' to retrieve details about a specific connection, 'test' to verify credentials and connectivity. Connections must be created and tested before being used in jobs. Multiple jobs can use the same connection simultaneously. Note: For counting connections, use 'list' and count the results client-side.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,7 +112,7 @@ export const connectionTools: Tool[] = [
   },
   {
     name: "write_connections",
-    description: "Create, update, or delete data connections. Connections define how to access your data sources (databases, APIs, files) and destinations. Connection strings are provider-specific - consult CData documentation for your provider. Cannot modify or delete connections currently in use by running jobs. To change providers, delete and recreate the connection.",
+    description: "Create, update, or delete data connections. If not authenticated with CData Sync, you will be prompted for credentials. Connections define how to access your data sources (databases, APIs, files) and destinations. Connection strings are provider-specific - consult CData documentation for your provider. Cannot modify or delete connections currently in use by running jobs. To change providers, delete and recreate the connection.",
     inputSchema: {
       type: "object",
       properties: {
@@ -149,7 +149,7 @@ export const connectionTools: Tool[] = [
 export const jobTools: Tool[] = [
   {
     name: "read_jobs",
-    description: "Access and monitor data replication jobs that move data from source to destination. Jobs contain tasks defining what data to replicate. Use 'list' to see all jobs, 'get' for configuration details, 'status' to check current execution state, 'history' for past runs, or 'logs' for detailed execution logs. Note: Count action not supported by API - use 'list' and count results client-side. Jobs can run on-demand or on schedules using cron expressions.",
+    description: "Access and monitor data replication jobs that move data from source to destination. If not authenticated with CData Sync, you will be prompted for credentials. Jobs contain tasks defining what data to replicate. Use 'list' to see all jobs, 'get' for configuration details, 'status' to check current execution state, 'history' for past runs, or 'logs' for detailed execution logs. Note: Count action not supported by API - use 'list' and count results client-side. Jobs can run on-demand or on schedules using cron expressions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -207,7 +207,7 @@ export const jobTools: Tool[] = [
   },
   {
     name: "write_jobs",
-    description: "Create, modify, or delete data replication jobs. Jobs orchestrate moving data from source to destination with options for scheduling, transformations, error handling, and notifications. IMPORTANT: Use table names exactly as reported by the source connection - do not modify names or extensions. Job types: 1=Standard replication, 2=Sync All tables, 3=Load Folder, 7=Change Data Capture, 10=Reverse ETL. Cannot modify/delete running jobs. Add tasks after creating the job.",
+    description: "Create, modify, or delete data replication jobs. If not authenticated with CData Sync, you will be prompted for credentials. Jobs orchestrate moving data from source to destination with options for scheduling, transformations, error handling, and notifications. IMPORTANT: Use table names exactly as reported by the source connection - do not modify names or extensions. Job types: 1=Standard replication, 2=Sync All tables, 3=Load Folder, 7=Change Data Capture, 10=Reverse ETL. Cannot modify/delete running jobs. Add tasks after creating the job.",
     inputSchema: {
       type: "object",
       properties: {
@@ -357,7 +357,7 @@ export const jobTools: Tool[] = [
   },
   {
     name: "execute_job",
-    description: "Run a job immediately, bypassing its schedule. Executes all tasks in sequence (or parallel if configured). Use waitForResults=true to wait for completion and see results, or false to start asynchronously. Running jobs cannot be modified or deleted until complete.",
+    description: "Run a job immediately, bypassing its schedule. If not authenticated with CData Sync, you will be prompted for credentials. Executes all tasks in sequence (or parallel if configured). Use waitForResults=true to wait for completion and see results, or false to start asynchronously. Running jobs cannot be modified or deleted until complete.",
     inputSchema: {
       type: "object",
       properties: {
@@ -388,7 +388,7 @@ export const jobTools: Tool[] = [
   },
   {
     name: "cancel_job",
-    description: "Stop a currently running job. Cancellation may take time as current task completes. Partial data may remain in destination. Use job history to see what was processed before cancellation.",
+    description: "Stop a currently running job. If not authenticated with CData Sync, you will be prompted for credentials. Cancellation may take time as current task completes. Partial data may remain in destination. Use job history to see what was processed before cancellation.",
     inputSchema: {
       type: "object",
       properties: {
@@ -411,7 +411,7 @@ export const jobTools: Tool[] = [
 export const taskTools: Tool[] = [
   {
     name: "read_tasks",
-    description: "Access tasks within a specific job. Each task defines specific data to replicate - either a table or custom query. Tasks execute sequentially by index order (or in parallel if job configured). IMPORTANT: All actions require a jobName parameter. Use 'get' to see all tasks in a job. Tasks have unique TaskIds (large numbers - handle as strings).",
+    description: "Access tasks within a specific job. If not authenticated with CData Sync, you will be prompted for credentials. Each task defines specific data to replicate - either a table or custom query. Tasks execute sequentially by index order (or in parallel if job configured). IMPORTANT: All actions require a jobName parameter. Use 'get' to see all tasks in a job. Tasks have unique TaskIds (large numbers - handle as strings).",
     inputSchema: {
       type: "object",
       properties: {
@@ -451,7 +451,7 @@ export const taskTools: Tool[] = [
   },
   {
     name: "write_tasks",
-    description: "Manage tasks within jobs. IMPORTANT: Tasks cannot be directly updated - to modify, delete then recreate. Use 'create' to add 'REPLICATE [TableName]' for full table copy using exact source table names, or custom SQL queries with filters/joins. Tasks execute by index order. Delete removes specific task. TaskIds are large numbers - always handle as strings to prevent precision loss.",
+    description: "Manage tasks within jobs. If not authenticated with CData Sync, you will be prompted for credentials. IMPORTANT: Tasks cannot be directly updated - to modify, delete then recreate. Use 'create' to add 'REPLICATE [TableName]' for full table copy using exact source table names, or custom SQL queries with filters/joins. Tasks execute by index order. Delete removes specific task. TaskIds are large numbers - always handle as strings to prevent precision loss.",
     inputSchema: {
       type: "object",
       properties: {
@@ -493,7 +493,7 @@ export const taskTools: Tool[] = [
 export const queryTools: Tool[] = [
   {
     name: "execute_query",
-    description: "Execute pre-defined queries within a job context for testing or ad-hoc data operations. IMPORTANT: Can only execute queries that are already defined as tasks in the job - cannot run arbitrary SQL. Queries run in the job's source/destination connections. Use for testing existing job tasks or triggering specific job queries. Respects job settings like timeout and error handling.",
+    description: "Execute pre-defined queries within a job context for testing or ad-hoc data operations. If not authenticated with CData Sync, you will be prompted for credentials. IMPORTANT: Can only execute queries that are already defined as tasks in the job - cannot run arbitrary SQL. Queries run in the job's source/destination connections. Use for testing existing job tasks or triggering specific job queries. Respects job settings like timeout and error handling.",
     inputSchema: {
       type: "object",
       properties: {
@@ -530,7 +530,7 @@ export const queryTools: Tool[] = [
   },
   {
     name: "get_connection_tables",
-    description: "Discover available tables/views in a data source. Essential first step before creating jobs - shows what data is available to replicate. Use the exact table names returned by this function when creating REPLICATE tasks. Check both source and destination to ensure compatibility.",
+    description: "Discover available tables/views in a data source. If not authenticated with CData Sync, you will be prompted for credentials. Essential first step before creating jobs - shows what data is available to replicate. Use the exact table names returned by this function when creating REPLICATE tasks. Check both source and destination to ensure compatibility.",
     inputSchema: {
       type: "object",
       properties: {
@@ -576,7 +576,7 @@ export const queryTools: Tool[] = [
   },
   {
     name: "get_table_columns",
-    description: "Get column details for a specific table including names, data types, and key information. Use exact table name as reported by get_connection_tables. Essential for understanding table structure before writing queries, verifying schema compatibility, or planning data transformations.",
+    description: "Get column details for a specific table including names, data types, and key information. If not authenticated with CData Sync, you will be prompted for credentials. Use exact table name as reported by get_connection_tables. Essential for understanding table structure before writing queries, verifying schema compatibility, or planning data transformations.",
     inputSchema: {
       type: "object",
       properties: {
@@ -595,7 +595,7 @@ export const queryTools: Tool[] = [
   },
   {
     name: "get_job_tables",
-    description: "List tables available to add to a specific job, considering job configuration and connection capabilities. Similar to get_connection_tables but filtered for job compatibility. Use when expanding job scope or adding new tables to existing job. Returns exact table names to use in tasks.",
+    description: "List tables available to add to a specific job, considering job configuration and connection capabilities. If not authenticated with CData Sync, you will be prompted for credentials. Similar to get_connection_tables but filtered for job compatibility. Use when expanding job scope or adding new tables to existing job. Returns exact table names to use in tasks.",
     inputSchema: {
       type: "object",
       properties: {
@@ -650,7 +650,7 @@ export const queryTools: Tool[] = [
 export const userTools: Tool[] = [
   {
     name: "read_users",
-    description: "Access CData Sync user accounts and their permissions. Users can have roles: cdata_admin (full access), cdata_standard (run jobs), cdata_job_creator (create/modify jobs), cdata_support (operate jobs). Use 'list' to see all users, 'get' for specific user details, or 'count' for total active users.",
+    description: "Access CData Sync user accounts and their permissions. If not authenticated with CData Sync, you will be prompted for credentials. Users can have roles: cdata_admin (full access), cdata_standard (run jobs), cdata_job_creator (create/modify jobs), cdata_support (operate jobs). Use 'list' to see all users, 'get' for specific user details, or 'count' for total active users.",
     inputSchema: {
       type: "object",
       properties: {
@@ -689,7 +689,7 @@ export const userTools: Tool[] = [
   },
   {
     name: "write_users",
-    description: "Create or update CData Sync users. Roles: cdata_admin (full admin), cdata_standard (run jobs), cdata_job_creator (create/edit jobs), cdata_support (operate jobs). Single or bulk creation supported. Users execute jobs with their permissions. Federation ID enables SSO. Cannot delete users via API.",
+    description: "Create or update CData Sync users. If not authenticated with CData Sync, you will be prompted for credentials. Roles: cdata_admin (full admin), cdata_standard (run jobs), cdata_job_creator (create/edit jobs), cdata_support (operate jobs). Single or bulk creation supported. Users execute jobs with their permissions. Federation ID enables SSO. Cannot delete users via API.",
     inputSchema: {
       type: "object",
       properties: {
@@ -774,7 +774,7 @@ export const userTools: Tool[] = [
 export const historyTools: Tool[] = [
   {
     name: "read_history",
-    description: "Access job execution history to analyze performance, troubleshoot failures, and audit data movements. Each history record shows when a job ran, its status, duration, and records affected. Use 'list' to browse history with filters/sorting. Note: Count action not supported by API - use 'list' and count results client-side. Essential for monitoring job health and SLA compliance.",
+    description: "Access job execution history to analyze performance, troubleshoot failures, and audit data movements. If not authenticated with CData Sync, you will be prompted for credentials. Each history record shows when a job ran, its status, duration, and records affected. Use 'list' to browse history with filters/sorting. Note: Count action not supported by API - use 'list' and count results client-side. Essential for monitoring job health and SLA compliance.",
     inputSchema: {
       type: "object",
       properties: {
@@ -812,7 +812,7 @@ export const historyTools: Tool[] = [
   },
   {
     name: "read_requests",
-    description: "Access API request logs for auditing, debugging, and compliance. Shows all API calls made to CData Sync including user, timestamp, endpoint, and response status. Use to track configuration changes, monitor API usage, or troubleshoot integration issues. Logs retained based on system settings.",
+    description: "Access API request logs for auditing, debugging, and compliance. If not authenticated with CData Sync, you will be prompted for credentials. Shows all API calls made to CData Sync including user, timestamp, endpoint, and response status. Use to track configuration changes, monitor API usage, or troubleshoot integration issues. Logs retained based on system settings.",
     inputSchema: {
       type: "object",
       properties: {
@@ -851,7 +851,7 @@ export const historyTools: Tool[] = [
   },
   {
     name: "write_requests",
-    description: "Delete API request log entries. Use for privacy compliance, log cleanup, or removing sensitive data. Only deletes log entries - does not undo the original operations. Requires appropriate permissions.",
+    description: "Delete API request log entries. If not authenticated with CData Sync, you will be prompted for credentials. Use for privacy compliance, log cleanup, or removing sensitive data. Only deletes log entries - does not undo the original operations. Requires appropriate permissions.",
     inputSchema: {
       type: "object",
       properties: {
@@ -875,7 +875,7 @@ export const historyTools: Tool[] = [
 export const transformationTools: Tool[] = [
   {
     name: "read_transformations",
-    description: "Access data transformations that run SQL in the destination after job completion (ELT pattern). Transformations clean, aggregate, or reshape data using the destination's processing power. Use 'list' to see all transformations, 'get' for details, or 'count' for total. Can run on schedule or trigger after specific jobs succeed.",
+    description: "Access data transformations that run SQL in the destination after job completion (ELT pattern). If not authenticated with CData Sync, you will be prompted for credentials. Transformations clean, aggregate, or reshape data using the destination's processing power. Use 'list' to see all transformations, 'get' for details, or 'count' for total. Can run on schedule or trigger after specific jobs succeed.",
     inputSchema: {
       type: "object",
       properties: {
@@ -914,7 +914,7 @@ export const transformationTools: Tool[] = [
   },
   {
     name: "write_transformations",
-    description: "Create, update, or delete SQL transformations for ELT processing. Transformations run SQL queries in the destination database to clean, aggregate, or reshape data after loading. Can run on cron schedules or automatically after specific jobs succeed. Use different connection than job if needed (e.g., read from staging, write to analytics schema).",
+    description: "Create, update, or delete SQL transformations for ELT processing. If not authenticated with CData Sync, you will be prompted for credentials. Transformations run SQL queries in the destination database to clean, aggregate, or reshape data after loading. Can run on cron schedules or automatically after specific jobs succeed. Use different connection than job if needed (e.g., read from staging, write to analytics schema).",
     inputSchema: {
       type: "object",
       properties: {
@@ -990,7 +990,7 @@ export const transformationTools: Tool[] = [
 export const certificateTools: Tool[] = [
   {
     name: "read_certificates",
-    description: "List SSL/TLS certificates used for secure connections. Certificates enable encrypted communication with HTTPS endpoints, APIs requiring client certificates, or secured database connections. Shows certificate details including expiration dates for compliance monitoring.",
+    description: "List SSL/TLS certificates used for secure connections. If not authenticated with CData Sync, you will be prompted for credentials. Certificates enable encrypted communication with HTTPS endpoints, APIs requiring client certificates, or secured database connections. Shows certificate details including expiration dates for compliance monitoring.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1024,7 +1024,7 @@ export const certificateTools: Tool[] = [
   },
   {
     name: "write_certificates",
-    description: "Upload SSL/TLS certificates for secure connections. Required for HTTPS sources, client certificate authentication, or encrypted database connections. Certificates must be base64-encoded. Monitor expiration dates to prevent connection failures.",
+    description: "Upload SSL/TLS certificates for secure connections. If not authenticated with CData Sync, you will be prompted for credentials. Required for HTTPS sources, client certificate authentication, or encrypted database connections. Certificates must be base64-encoded. Monitor expiration dates to prevent connection failures.",
     inputSchema: {
       type: "object",
       properties: {
