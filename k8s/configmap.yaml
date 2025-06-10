@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdata-sync-config
+  namespace: cdata-sync
+  labels:
+    app: cdata-sync-mcp-server
+data:
+  base-url: "http://cdata-sync-api:8181/api.rsc"  # Update with your CData Sync API URL

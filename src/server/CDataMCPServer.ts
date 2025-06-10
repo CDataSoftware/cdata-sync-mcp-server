@@ -8,6 +8,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { StreamableHttpTransport } from "../transport/StreamableHttpTransport.js";
 import { CDataConfig } from "../types/config.js";
 import { CDataSyncApiClient } from "../api/CDataSyncApiClient.js";
 import { ConnectionService } from "../services/ConnectionService.js";
@@ -56,9 +57,13 @@ export class CDataMCPServer {
   private userService: UserService;
   private historyService: HistoryService;
   private certificateService: CertificateService;
-  private sseServer: SSEServer;
+  private sseServer?: SSEServer;
+  private httpTransport?: StreamableHttpTransport;
+  private stdioTransport?: StdioServerTransport;
+  private useStderr: boolean;
 
-  constructor(config: CDataConfig) {
+  constructor(config: CDataConfig, useStderr: boolean = true) {
+    this.useStderr = useStderr;
     this.syncClient = new CDataSyncApiClient(config);
     
     // Create config service with callback to update all services
@@ -75,7 +80,6 @@ export class CDataMCPServer {
     this.userService = new UserService(this.syncClient);
     this.historyService = new HistoryService(this.syncClient);
     this.certificateService = new CertificateService(this.syncClient);
-    this.sseServer = new SSEServer();
 
     this.server = new Server(
       {
@@ -93,6 +97,14 @@ export class CDataMCPServer {
     this.setupMCPHandlers();
   }
 
+  private log(message: string): void {
+    if (this.useStderr) {
+      console.error(`[MCP Server] ${message}`);
+    } else {
+      console.log(`[MCP Server] ${message}`);
+    }
+  }
+
   private handleConfigChange(newConfig: CDataConfig): void {
     // Create new API client with new config
     this.syncClient = new CDataSyncApiClient(newConfig);
@@ -107,16 +119,16 @@ export class CDataMCPServer {
     this.historyService = new HistoryService(this.syncClient);
     this.certificateService = new CertificateService(this.syncClient);
     
-    // Broadcast configuration change event
-    this.sseServer.broadcastEvent("config_changed", {
-      timestamp: new Date().toISOString(),
-      baseUrl: newConfig.baseUrl,
-      authType: newConfig.authToken ? 'token' : 'basic'
-    });
-    
-    if (process.env.MCP_MODE) {
-      console.error("CData Sync connection reconfigured:", newConfig.baseUrl);
+    // Broadcast configuration change event if SSE server is running
+    if (this.sseServer) {
+      this.sseServer.broadcastEvent("config_changed", {
+        timestamp: new Date().toISOString(),
+        baseUrl: newConfig.baseUrl,
+        authType: newConfig.authToken ? 'token' : 'basic'
+      });
     }
+    
+    this.log(`CData Sync connection reconfigured: ${newConfig.baseUrl}`);
   }
 
   private setupMCPHandlers(): void {
@@ -177,27 +189,34 @@ export class CDataMCPServer {
     toolName: T,
     args: any
   ): Promise<ToolResultMap[T]> {
-    this.sseServer.broadcastEvent("tool_execution", {
-      tool: toolName,
-      args,
-      timestamp: new Date().toISOString(),
-    });
+    // Broadcast event if SSE server is running
+    if (this.sseServer) {
+      this.sseServer.broadcastEvent("tool_execution", {
+        tool: toolName,
+        args,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     try {
       const result = await this.executeToolMethod(toolName, args);
       
-      this.sseServer.broadcastEvent("tool_success", {
-        tool: toolName,
-        timestamp: new Date().toISOString(),
-      });
+      if (this.sseServer) {
+        this.sseServer.broadcastEvent("tool_success", {
+          tool: toolName,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       return result as ToolResultMap[T];
     } catch (error: any) {
-      this.sseServer.broadcastEvent("tool_error", {
-        tool: toolName,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      });
+      if (this.sseServer) {
+        this.sseServer.broadcastEvent("tool_error", {
+          tool: toolName,
+          error: error.message,
+          timestamp: new Date().toISOString(),
+        });
+      }
       throw error;
     }
   }
@@ -230,11 +249,13 @@ export class CDataMCPServer {
         args.jobId = toIdString(args.jobId);
       }
       const result = await this.jobService.executeJob(args);
-      this.sseServer.broadcastEvent("job_executed", {
-        jobName: args.jobName || args.jobId,
-        result,
-        timestamp: new Date().toISOString(),
-      });
+      if (this.sseServer) {
+        this.sseServer.broadcastEvent("job_executed", {
+          jobName: args.jobName || args.jobId,
+          result,
+          timestamp: new Date().toISOString(),
+        });
+      }
       return result;
     }
     if (toolName === "cancel_job") {
@@ -243,10 +264,12 @@ export class CDataMCPServer {
         args.jobId = toIdString(args.jobId);
       }
       const result = await this.jobService.cancelJob(args);
-      this.sseServer.broadcastEvent("job_cancelled", {
-        jobName: args.jobName || args.jobId,
-        timestamp: new Date().toISOString(),
-      });
+      if (this.sseServer) {
+        this.sseServer.broadcastEvent("job_cancelled", {
+          jobName: args.jobName || args.jobId,
+          timestamp: new Date().toISOString(),
+        });
+      }
       return result;
     }
 
@@ -298,12 +321,14 @@ export class CDataMCPServer {
     // Query and Schema Tools
     if (toolName === "execute_query") {
       const result = await this.jobService.executeQuery(args);
-      this.sseServer.broadcastEvent("query_executed", {
-        jobName: args.jobName || args.jobId,
-        queryCount: Array.isArray(args.queries) ? args.queries.length : Object.keys(args).filter(k => k.match(/^Query\d+$/)).length,
-        result,
-        timestamp: new Date().toISOString(),
-      });
+      if (this.sseServer) {
+        this.sseServer.broadcastEvent("query_executed", {
+          jobName: args.jobName || args.jobId,
+          queryCount: Array.isArray(args.queries) ? args.queries.length : Object.keys(args).filter(k => k.match(/^Query\d+$/)).length,
+          result,
+          timestamp: new Date().toISOString(),
+        });
+      }
       return result;
     }
     if (toolName === "get_connection_tables") {
@@ -314,11 +339,6 @@ export class CDataMCPServer {
     }
     if (toolName === "get_job_tables") {
       return this.jobService.getJobTables(args);
-    }
-
-    // Diagnostic tool (if implemented)
-    if (toolName === "diagnose_job_access") {
-      return this.jobService.diagnoseJobAccess(args.jobName);
     }
 
     throw new Error(`Unknown tool: ${toolName}`);
@@ -341,7 +361,7 @@ export class CDataMCPServer {
         const { action: _, ...updateParams } = args;
         const result = await this.syncConfigService.updateConfig(updateParams);
         
-        if (result.success) {
+        if (result.success && this.sseServer) {
           this.sseServer.broadcastEvent("config_updated", {
             timestamp: new Date().toISOString(),
             message: result.message,
@@ -850,21 +870,137 @@ export class CDataMCPServer {
     }
   }
 
-  async start(port: number = 3001): Promise<void> {
-    // Start SSE server (only if not in MCP mode)
-    if (!process.env.MCP_MODE) {
-      await this.sseServer.listen(port);
+  // Transport methods
+  async startStdio(ssePort?: number): Promise<void> {
+    // Start SSE server for debug events (optional)
+    if (ssePort) {
+      try {
+        this.sseServer = new SSEServer();
+        await this.sseServer.listen(ssePort);
+        
+        // Only log if server actually started
+        if (this.sseServer.isRunning()) {
+          this.log(`Debug event server listening on port ${ssePort} (optional)`);
+        }
+      } catch (error) {
+        // SSE server is optional, so don't fail if it can't start
+        this.log(`Debug event server could not start: ${error}`);
+      }
     }
 
-    // Start MCP server
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
+    // Start MCP server with stdio transport
+    this.stdioTransport = new StdioServerTransport();
+    await this.server.connect(this.stdioTransport);
     
-    // Log startup message
-    if (process.env.MCP_MODE) {
-      console.error("CData Sync MCP Server started");
-    } else {
-      console.log("CData Sync MCP Server started");
+    this.log("MCP server ready with stdio transport");
+  }
+
+  async startHttp(httpPort: number = 3000): Promise<void> {
+    // No separate SSE server needed for HTTP transport
+    // The HTTP transport has its own streaming endpoint
+    
+    // Start MCP server with HTTP transport
+    this.httpTransport = new StreamableHttpTransport({
+      port: httpPort,
+      path: '/mcp/v1',
+      cors: true,
+      timeout: 30000
+    });
+    
+    await this.httpTransport.start();
+    await this.server.connect(this.httpTransport);
+    
+    this.log(`MCP server ready with HTTP transport on port ${httpPort}`);
+  }
+
+  async startBoth(httpPort: number = 3000, ssePort: number = 3001): Promise<void> {
+    // Start optional debug SSE server
+    this.sseServer = new SSEServer();
+    await this.sseServer.listen(ssePort);
+    
+    // Create two separate server instances for dual transport
+    // The MCP SDK doesn't support multiple transports on one server
+    
+    // Server 1: Stdio transport
+    const stdioServer = new Server(
+      {
+        name: "cdata-sync-mcp-server-stdio",
+        version: "1.0.0",
+      },
+      {
+        capabilities: {
+          tools: {},
+          resources: {},
+        },
+      }
+    );
+    
+    // Set up handlers for stdio server (duplicate the main server's handlers)
+    stdioServer.setRequestHandler(ListToolsRequestSchema, async () => {
+      return { tools: getAllTools() };
+    });
+    
+    stdioServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+      // Call the same handler method we use for the main server
+      const { name, arguments: args } = request.params;
+      try {
+        const validation = this.validateToolParameters(name, args || {});
+        if (!validation.valid) {
+          throw new Error(`Missing required parameters: ${validation.missingParams.join(', ')}`);
+        }
+        const result = await this.handleToolCall(name as keyof ToolParamMap, args || {});
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        let errorMessage = `Tool execution failed: ${error.message}`;
+        if (error.response?.status === 400) {
+          errorMessage += ` (Bad Request - check parameter format)`;
+        } else if (error.response?.status === 404) {
+          errorMessage += ` (Not Found - resource doesn't exist)`;
+        } else if (error.response?.status === 401) {
+          errorMessage += ` (Unauthorized - check authentication)`;
+        }
+        if (error.response?.data?.error?.message) {
+          errorMessage += ` - API Error: ${error.response.data.error.message}`;
+        }
+        throw new McpError(ErrorCode.InternalError, errorMessage);
+      }
+    });
+    
+    this.stdioTransport = new StdioServerTransport();
+    await stdioServer.connect(this.stdioTransport);
+    
+    // Server 2: HTTP transport (using the main server)
+    this.httpTransport = new StreamableHttpTransport({
+      port: httpPort,
+      path: '/mcp/v1',
+      cors: true,
+      timeout: 30000
+    });
+    
+    await this.httpTransport.start();
+    await this.server.connect(this.httpTransport);
+    
+    this.log(`MCP server ready with dual transports:`);
+    this.log(`  - Stdio transport: active`);
+    this.log(`  - HTTP transport: port ${httpPort}`);
+    this.log(`  - Debug events: port ${ssePort} (optional)`);
+  }
+
+  async stop(): Promise<void> {
+    // Close transports
+    if (this.httpTransport) {
+      await this.httpTransport.close();
     }
+    
+    // Close SSE server if running
+    if (this.sseServer) {
+      await this.sseServer.close();
+    }
+  }
+
+  // Backward compatibility
+  async start(port: number = 3001): Promise<void> {
+    // Default to stdio for backward compatibility
+    await this.startStdio(port);
   }
 }

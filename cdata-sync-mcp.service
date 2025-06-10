@@ -1,0 +1,48 @@
+[Unit]
+Description=CData Sync MCP Server
+Documentation=https://github.com/yourusername/cdata-sync-mcp-server
+After=network.target
+
+[Service]
+Type=simple
+User=cdata-mcp
+Group=cdata-mcp
+WorkingDirectory=/opt/cdata-sync-mcp-server
+
+# Environment variables
+Environment="NODE_ENV=production"
+Environment="MCP_TRANSPORT_MODE=http"
+Environment="MCP_HTTP_PORT=3000"
+Environment="SSE_PORT=3001"
+Environment="DISABLE_SSE=false"
+Environment="CDATA_BASE_URL=http://localhost:8181/api.rsc"
+
+# Load additional environment from file
+EnvironmentFile=-/etc/cdata-sync-mcp/environment
+
+# Start command
+ExecStart=/usr/bin/node /opt/cdata-sync-mcp-server/dist/index.js
+
+# Restart configuration
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cdata-sync-mcp-server/logs
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+CPUQuota=50%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cdata-sync-mcp
+
+[Install]
+WantedBy=multi-user.target

@@ -1,10 +1,13 @@
 // src/sse/SSEServer.ts
 import express from "express";
 import cors from "cors";
+import { Server as HttpServer } from "http";
 
 export class SSEServer {
   private app: express.Application;
   private clients: Map<string, express.Response> = new Map();
+  private server?: HttpServer;
+  private isListening: boolean = false;
 
   constructor() {
     this.app = express();
@@ -37,7 +40,23 @@ export class SSEServer {
         timestamp: new Date().toISOString() 
       });
 
+      // Send heartbeat every 30 seconds to keep connection alive
+      const heartbeat = setInterval(() => {
+        try {
+          res.write(`:heartbeat\n\n`);
+        } catch (error) {
+          // Client disconnected
+          clearInterval(heartbeat);
+        }
+      }, 30000);
+
       req.on("close", () => {
+        clearInterval(heartbeat);
+        this.clients.delete(clientId);
+      });
+
+      req.on("error", () => {
+        clearInterval(heartbeat);
         this.clients.delete(clientId);
       });
     });
@@ -54,31 +73,101 @@ export class SSEServer {
 
   sendEvent(clientId: string, event: string, data: any) {
     const client = this.clients.get(clientId);
-    if (client) {
-      client.write(`event: ${event}\n`);
-      client.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (client && !client.destroyed) {
+      try {
+        client.write(`event: ${event}\n`);
+        client.write(`data: ${JSON.stringify(data)}\n\n`);
+      } catch (error) {
+        // Client disconnected, remove from map
+        this.clients.delete(clientId);
+      }
     }
   }
 
   broadcastEvent(event: string, data: any) {
-    for (const [clientId] of this.clients) {
-      this.sendEvent(clientId, event, data);
+    const deadClients: string[] = [];
+    
+    for (const [clientId, client] of this.clients) {
+      try {
+        if (!client.destroyed) {
+          client.write(`event: ${event}\n`);
+          client.write(`data: ${JSON.stringify(data)}\n\n`);
+        } else {
+          deadClients.push(clientId);
+        }
+      } catch (error) {
+        deadClients.push(clientId);
+      }
     }
+    
+    // Clean up dead clients
+    deadClients.forEach(clientId => this.clients.delete(clientId));
   }
 
-  listen(port: number): Promise<void> {
+  async listen(port: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.server = this.app.listen(port, () => {
+          this.isListening = true;
+          console.error(`[SSE Server] Debug event server running on port ${port}`);
+          console.error(`[SSE Server] Events endpoint: http://localhost:${port}/events`);
+          resolve();
+        });
+
+        this.server.on('error', (error: any) => {
+          if (error.code === 'EADDRINUSE') {
+            console.error(`[SSE Server] Port ${port} is already in use. Debug events disabled.`);
+            this.isListening = false;
+            // Don't reject - just disable SSE functionality
+            resolve();
+          } else {
+            reject(error);
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async close(): Promise<void> {
     return new Promise((resolve) => {
-      this.app.listen(port, () => {
-        if (process.env.MCP_MODE) {
-          console.error(`SSE server running on port ${port}`);
-          console.error(`Events endpoint: http://localhost:${port}/events`);
+      // Close all client connections
+      for (const [clientId, client] of this.clients) {
+        try {
+          client.end();
+        } catch (error) {
+          // Ignore errors when closing
         }
+      }
+      this.clients.clear();
+
+      // Close the HTTP server
+      if (this.server && this.isListening) {
+        this.server.close(() => {
+          this.isListening = false;
+          console.error('[SSE Server] Debug event server closed');
+          resolve();
+        });
+
+        // Force close after timeout
+        setTimeout(() => {
+          if (this.server && this.isListening) {
+            this.server.closeAllConnections();
+            resolve();
+          }
+        }, 5000);
+      } else {
         resolve();
-      });
+      }
     });
   }
 
   getConnectedClientCount(): number {
     return this.clients.size;
+  }
+
+  isRunning(): boolean {
+    return this.isListening;
   }
 }

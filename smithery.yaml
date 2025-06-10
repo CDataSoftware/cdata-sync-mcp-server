@@ -1,4 +1,5 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+# This configuration is for desktop usage with stdio transport (Claude Desktop app)
 
 startCommand:
   type: stdio
@@ -21,18 +22,14 @@ startCommand:
       cdataPassword:
         type: string
         description: CData Sync password (for basic auth)
-      mcpMode:
-        type: boolean
-        default: true
-        description: Enable MCP mode (stdio) vs SSE mode
       debugHttp:
         type: boolean
         default: false
         description: Enable HTTP request/response debugging
-      ssePort:
-        type: number
-        default: 3001
-        description: Port for SSE server (when MCP mode is false)
+      disableSSE:
+        type: boolean
+        default: false
+        description: Disable SSE debug server
     oneOf:
       - required: [cdataBaseUrl, cdataAuthToken]
       - required: [cdataBaseUrl, cdataUsername, cdataPassword]
@@ -47,14 +44,13 @@ startCommand:
         CDATA_AUTH_TOKEN: config.cdataAuthToken,
         CDATA_USERNAME: config.cdataUsername,
         CDATA_PASSWORD: config.cdataPassword,
-        MCP_MODE: config.mcpMode?.toString(),
+        MCP_TRANSPORT_MODE: 'stdio',
         DEBUG_HTTP: config.debugHttp?.toString(),
-        SSE_PORT: config.ssePort?.toString()
+        DISABLE_SSE: config.disableSSE?.toString()
       }
     })
   exampleConfig:
     cdataBaseUrl: http://localhost:8181/api.rsc
     cdataAuthToken: your-api-token-here
-    mcpMode: true
     debugHttp: false
-    ssePort: 3001
+    disableSSE: true

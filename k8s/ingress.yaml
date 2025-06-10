@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cdata-sync-mcp-server
+  namespace: cdata-sync
+  labels:
+    app: cdata-sync-mcp-server
+  annotations:
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"  # If using cert-manager
+    # kubernetes.io/ingress.class: "nginx"
+spec:
+  # tls:
+  # - hosts:
+  #   - mcp.example.com
+  #   secretName: cdata-sync-mcp-tls
+  rules:
+  - host: mcp.example.com  # Replace with your domain
+    http:
+      paths:
+      - path: /mcp/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: cdata-sync-mcp-server
+            port:
+              name: http
+      - path: /sse
+        pathType: Prefix
+        backend:
+          service:
+            name: cdata-sync-mcp-server
+            port:
+              name: sse

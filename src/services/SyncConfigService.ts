@@ -17,13 +17,15 @@ export class SyncConfigService implements ISyncConfigService {
   }
 
   async getCurrentConfig(): Promise<ConfigurationInfo> {
+    const hasAuth = this.config.authToken || (this.config.username && this.config.password);
+    
     return {
       baseUrl: this.config.baseUrl,
       authType: this.config.authToken ? 'token' : (this.config.username ? 'basic' : 'none'),
       username: this.config.username || undefined,
       hasPassword: !!this.config.password,
       hasAuthToken: !!this.config.authToken,
-      isConfigured: !!(this.config.baseUrl && (this.config.authToken || (this.config.username && this.config.password)))
+      isConfigured: !!(this.config.baseUrl && hasAuth)
     };
   }
 
@@ -100,10 +102,10 @@ export class SyncConfigService implements ISyncConfigService {
       };
     }
 
-    // Test the new configuration
+    // Test the new configuration (but don't fail if CData Sync is unreachable)
     try {
       const testClient = new CDataSyncApiClient(newConfig);
-      const testResult = await testClient.get<any>("/connections");
+      const testResult = await testClient.get<any>("/connections/$count");
       
       // If test succeeds, update the config
       this.config = newConfig;
@@ -115,26 +117,36 @@ export class SyncConfigService implements ISyncConfigService {
 
       return {
         success: true,
-        message: `Configuration updated successfully. Connected to CData Sync at ${newConfig.baseUrl}`,
+        message: `Configuration updated and tested successfully. Connected to CData Sync at ${newConfig.baseUrl}`,
         testResult: { connectionCount: testResult }
       };
     } catch (error: any) {
-      // Test failed, don't update config
-      let errorMessage = "Failed to connect with new configuration: ";
+      // Test failed, but still update config if it's structurally valid
+      // This allows users to configure the server even when CData Sync is down
+      this.config = newConfig;
+      
+      // Notify about config change
+      if (this.onConfigChange) {
+        this.onConfigChange(newConfig);
+      }
+
+      let warningMessage = "Configuration updated, but connection test failed: ";
       
       if (error.response?.status === 401) {
-        errorMessage += "Authentication failed. Check credentials.";
+        warningMessage += "Authentication failed. Please verify credentials.";
       } else if (error.response?.status === 404) {
-        errorMessage += "API endpoint not found. Check base URL.";
+        warningMessage += "API endpoint not found. Please verify the base URL.";
       } else if (error.code === 'ECONNREFUSED') {
-        errorMessage += "Connection refused. Check if CData Sync is running.";
+        warningMessage += "Connection refused. CData Sync may not be running.";
+      } else if (error.code === 'ENOTFOUND') {
+        warningMessage += "Host not found. Please verify the base URL.";
       } else {
-        errorMessage += error.message;
+        warningMessage += error.message;
       }
 
       return {
-        success: false,
-        message: errorMessage
+        success: true, // Configuration was updated successfully
+        message: `${warningMessage} The configuration has been saved and will be used for future requests.`
       };
     }
   }
@@ -143,17 +155,39 @@ export class SyncConfigService implements ISyncConfigService {
     return { ...this.config };
   }
 
+  // Check if the current configuration is sufficient for API calls
+  isConfigured(): boolean {
+    const hasAuth = this.config.authToken || (this.config.username && this.config.password);
+    return !!(this.config.baseUrl && hasAuth);
+  }
+
+  // Get a helpful configuration error message
+  getConfigurationError(): string {
+    if (!this.config.baseUrl) {
+      return "Base URL is not configured. Use configure_sync_server to set the CData Sync API URL.";
+    }
+
+    const hasAuth = this.config.authToken || (this.config.username && this.config.password);
+    if (!hasAuth) {
+      return "Authentication is not configured. Use configure_sync_server to set either authToken or username/password.";
+    }
+
+    if (this.config.username && !this.config.password) {
+      return "Incomplete basic authentication. Password is required when using username.";
+    }
+
+    return "Configuration appears valid.";
+  }
+
   private validateConfig(config: CDataConfig): { valid: boolean; message: string } {
     if (!config.baseUrl) {
       return { valid: false, message: "Base URL is required" };
     }
 
-    const hasAuth = config.authToken || (config.username && config.password);
-    if (!hasAuth) {
-      return { valid: false, message: "Authentication is required. Provide either authToken or username/password." };
-    }
+    // Don't require authentication for validation - allow saving incomplete config
+    // This enables users to configure in steps
 
-    if (!config.authToken && config.username && !config.password) {
+    if (config.username && !config.password) {
       return { valid: false, message: "Password is required when using basic authentication" };
     }
 
