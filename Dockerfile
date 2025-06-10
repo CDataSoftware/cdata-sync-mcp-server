@@ -9,14 +9,14 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and tsconfig (needed for prepare script)
 COPY package*.json ./
+COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (skip prepare script during install)
+RUN npm ci --ignore-scripts
 
 # Copy source code
-COPY tsconfig.json ./
 COPY src ./src
 
 # Build TypeScript
