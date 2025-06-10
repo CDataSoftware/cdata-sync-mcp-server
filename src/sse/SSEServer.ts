@@ -133,9 +133,9 @@ export class SSEServer {
   async close(): Promise<void> {
     return new Promise((resolve) => {
       // Close all client connections
-      for (const [clientId, client] of this.clients) {
+      for (const [_clientId, res] of this.clients) {
         try {
-          client.end();
+          res.end();
         } catch (error) {
           // Ignore errors when closing
         }
