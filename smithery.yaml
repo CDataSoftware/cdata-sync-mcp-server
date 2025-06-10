@@ -1,27 +1,25 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
-# This configuration is for desktop usage with stdio transport (Claude Desktop app)
+# This configuration uses Streamable HTTP transport for Smithery deployment
 
 startCommand:
-  type: stdio
+  type: http
   configSchema:
     # JSON Schema defining the configuration options for the MCP.
     type: object
-    required:
-      - cdataBaseUrl
     properties:
       cdataBaseUrl:
         type: string
-        description: CData Sync API endpoint URL
+        description: CData Sync API endpoint URL (optional, can be configured later)
         default: http://localhost:8181/api.rsc
       cdataAuthToken:
         type: string
-        description: CData Sync API authentication token (recommended)
+        description: CData Sync API authentication token (optional)
       cdataUsername:
         type: string
-        description: CData Sync username (for basic auth)
+        description: CData Sync username (for basic auth, optional)
       cdataPassword:
         type: string
-        description: CData Sync password (for basic auth)
+        description: CData Sync password (for basic auth, optional)
       debugHttp:
         type: boolean
         default: false
@@ -30,27 +28,28 @@ startCommand:
         type: boolean
         default: false
         description: Disable SSE debug server
-    oneOf:
-      - required: [cdataBaseUrl, cdataAuthToken]
-      - required: [cdataBaseUrl, cdataUsername, cdataPassword]
   commandFunction:
-    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    # A JS function that produces the CLI command based on the given config to start the MCP on HTTP.
     |-
     (config) => ({
       command: 'node',
       args: ['dist/index.js'],
       env: {
-        CDATA_BASE_URL: config.cdataBaseUrl,
-        CDATA_AUTH_TOKEN: config.cdataAuthToken,
-        CDATA_USERNAME: config.cdataUsername,
-        CDATA_PASSWORD: config.cdataPassword,
-        MCP_TRANSPORT_MODE: 'stdio',
-        DEBUG_HTTP: config.debugHttp?.toString(),
-        DISABLE_SSE: config.disableSSE?.toString()
+        CDATA_BASE_URL: config.cdataBaseUrl || '',
+        CDATA_AUTH_TOKEN: config.cdataAuthToken || '',
+        CDATA_USERNAME: config.cdataUsername || '',
+        CDATA_PASSWORD: config.cdataPassword || '',
+        MCP_TRANSPORT_MODE: 'http',
+        MCP_HTTP_PORT: '3000',
+        SSE_PORT: '3001',
+        DEBUG_HTTP: config.debugHttp?.toString() || 'false',
+        DISABLE_SSE: config.disableSSE?.toString() || 'false'
       }
     })
   exampleConfig:
-    cdataBaseUrl: http://localhost:8181/api.rsc
-    cdataAuthToken: your-api-token-here
+    # All fields are optional - you can connect without any configuration
+    # and use the configure_sync_server tool to set up connection later
+    cdataBaseUrl: ""
+    cdataAuthToken: ""
     debugHttp: false
     disableSSE: true
