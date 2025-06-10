@@ -1,4 +1,4 @@
 # Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
 # This configuration uses Streamable HTTP transport for Smithery deployment
 
-runtime: typscript
+runtime: typescript
