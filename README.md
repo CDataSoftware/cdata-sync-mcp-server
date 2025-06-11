@@ -1,10 +1,10 @@
 # CData Sync MCP Server
 
-[![smithery badge](https://smithery.ai/badge/@CDataSoftware/cdata-sync-mcp-server)](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-blue?style=for-the-badge)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![smithery badge](https://smithery.ai/badge/@CDataSoftware/cdata-sync-mcp-server)](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server)
 
 A comprehensive **Model Context Protocol (MCP) server** for [CData Sync](https://www.cdata.com/sync/) with **dual transport support**. This server exposes CData Sync's REST API as MCP tools, enabling AI assistants like Claude to manage data synchronization jobs, connections, and ETL operations.
 
@@ -33,15 +33,17 @@ A comprehensive **Model Context Protocol (MCP) server** for [CData Sync](https:/
 - CData Sync instance running
 - Claude Desktop (for stdio transport) or web browser (for HTTP transport)
 
-### Installing via Smithery
+### Installation
 
-To install CData Sync Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server):
+#### Installing via Smithery
+
+To install cdata-sync-mcp-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server):
 
 ```bash
 npx -y @smithery/cli install @CDataSoftware/cdata-sync-mcp-server --client claude
 ```
 
-### Installation
+#### Manual Installation
 
 1. **Clone the repository**
    ```bash
