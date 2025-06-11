@@ -924,7 +924,8 @@ export class CDataMCPServer {
       timeout: 30000
     });
     
-    await this.httpTransport.start();
+    // Don't call start() explicitly - server.connect() will handle it
+    // await this.httpTransport.start();
     await this.server.connect(this.httpTransport);
     
     this.log(`MCP server ready with HTTP transport on port ${httpPort}`);
