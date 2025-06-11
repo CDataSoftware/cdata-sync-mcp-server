@@ -1,5 +1,6 @@
 # CData Sync MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@CDataSoftware/cdata-sync-mcp-server)](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-blue?style=for-the-badge)](https://modelcontextprotocol.io/)
@@ -31,6 +32,14 @@ A comprehensive **Model Context Protocol (MCP) server** for [CData Sync](https:/
 - Node.js 18+ 
 - CData Sync instance running
 - Claude Desktop (for stdio transport) or web browser (for HTTP transport)
+
+### Installing via Smithery
+
+To install CData Sync Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@CDataSoftware/cdata-sync-mcp-server):
+
+```bash
+npx -y @smithery/cli install @CDataSoftware/cdata-sync-mcp-server --client claude
+```
 
 ### Installation
 
