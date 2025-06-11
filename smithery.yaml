@@ -1,0 +1,34 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: http
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    properties:
+      debugHttp:
+        type: boolean
+        default: false
+        description: Enable HTTP request/response debugging
+      disableSSE:
+        type: boolean
+        default: false
+        description: Disable SSE debug server
+      cdataBaseUrl:
+        type: string
+        default: http://localhost:8181/api.rsc
+        description: CData Sync API endpoint URL (optional, can be configured later)
+      cdataPassword:
+        type: string
+        description: CData Sync password (for basic auth, optional)
+      cdataUsername:
+        type: string
+        description: CData Sync username (for basic auth, optional)
+      cdataAuthToken:
+        type: string
+        description: CData Sync API authentication token (optional)
+  exampleConfig:
+    debugHttp: false
+    disableSSE: true
+    cdataBaseUrl: ""
+    cdataAuthToken: ""
