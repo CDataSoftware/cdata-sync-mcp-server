@@ -27,10 +27,10 @@ export class StreamableHttpTransport implements Transport {
   private messageBuffer: JSONRPCMessage[] = [];
   private isStarted = false;
 
-  // Transport interface
-  onMessage?: (message: JSONRPCMessage) => void;
-  onClose?: () => void;
-  onError?: (error: Error) => void;
+  // Transport interface - must use lowercase names to match MCP SDK
+  onmessage?: (message: JSONRPCMessage) => void;
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
 
   constructor(config: StreamableHttpConfig) {
     this.config = {
@@ -234,8 +234,8 @@ export class StreamableHttpTransport implements Transport {
       });
 
       // Forward to MCP server
-      if (this.onMessage) {
-        this.onMessage(request);
+      if (this.onmessage) {
+        this.onmessage(request);
       } else {
         clearTimeout(timeout);
         this.pendingRequests.delete(request.id);
@@ -257,8 +257,8 @@ export class StreamableHttpTransport implements Transport {
     }
 
     // Forward other messages to MCP server
-    if (this.onMessage) {
-      this.onMessage(message);
+    if (this.onmessage) {
+      this.onmessage(message);
     }
   }
 
@@ -297,6 +297,11 @@ export class StreamableHttpTransport implements Transport {
   }
 
   async start(): Promise<void> {
+    if (this.isStarted) {
+      console.log(`[HTTP Transport] Already started, skipping...`);
+      return;
+    }
+    
     return new Promise((resolve, reject) => {
       try {
         this.server = this.app.listen(this.config.port, () => {
@@ -312,8 +317,8 @@ export class StreamableHttpTransport implements Transport {
 
         this.server.on('error', (error: Error) => {
           console.error('[HTTP Transport] Server error:', error);
-          if (this.onError) {
-            this.onError(error);
+          if (this.onerror) {
+            this.onerror(error);
           }
           reject(error);
         });
@@ -354,8 +359,8 @@ export class StreamableHttpTransport implements Transport {
         resolve();
       }
 
-      if (this.onClose) {
-        this.onClose();
+      if (this.onclose) {
+        this.onclose();
       }
     });
   }
