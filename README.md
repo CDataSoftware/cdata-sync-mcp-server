@@ -85,12 +85,6 @@ The **stdio transport** is designed for local desktop usage with the Claude Desk
 }
 ```
 
-**Or use Smithery for easy installation:**
-```bash
-# Install via smithery
-smithery install cdata-sync-mcp-server
-```
-
 **Start stdio-only server:**
 ```bash
 npm run start:stdio
