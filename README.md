@@ -36,7 +36,7 @@ A comprehensive **Model Context Protocol (MCP) server** for [CData Sync](https:/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/cdata-sync-mcp-server.git
+   git clone https://github.com/CDataSoftware/cdata-sync-mcp-server.git
    cd cdata-sync-mcp-server
    ```
 
@@ -412,8 +412,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: Full API documentation available in the [docs](docs/) directory
-- **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/yourusername/cdata-sync-mcp-server/issues)
-- **Discussions**: Community support via [GitHub Discussions](https://github.com/yourusername/cdata-sync-mcp-server/discussions)
+- **Issues**: Report bugs and request features via [GitHub Issues](https://github.com/CDataSoftware/cdata-sync-mcp-server/issues)
+- **Discussions**: Community support via [CData Community](https://community.cdata.com)
 
 ## 📚 Additional Resources
 

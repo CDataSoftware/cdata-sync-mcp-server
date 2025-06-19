@@ -1,6 +1,6 @@
 [Unit]
 Description=CData Sync MCP Server
-Documentation=https://github.com/yourusername/cdata-sync-mcp-server
+Documentation=https://github.com/CDataSoftware/cdata-sync-mcp-server
 After=network.target
 
 [Service]

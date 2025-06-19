@@ -43,7 +43,7 @@ export const configurationTools: Tool[] = [
           type: "string",
           minLength: 8,
           maxLength: 128,
-          description: "Password for basic authentication (minimum 8 characters). Required when using username. Credentials are validated by attempting a connection. Store securely - do not commit to version control."
+          description: "Password must be 8+ characters with uppercase, lowercase, numbers, AND special characters (!@#$%^&*). Example: 'MyPass123@'. Required when using username. Store securely - do not commit to version control."
         },
         authToken: {
           type: "string",
@@ -85,7 +85,11 @@ export const connectionTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter expression. Note: Some complex filters may not be supported. Use simple expressions like \"contains(Name,'value')\" for best results."
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+LIMITED SUPPORT: contains(), startswith()
+NOT SUPPORTED: nested queries, computed properties
+Example: "ProviderName eq 'CData Salesforce' and ConnectionState eq 'Successful'"`
         },
         select: {
           type: "string",
@@ -149,7 +153,19 @@ export const connectionTools: Tool[] = [
 export const jobTools: Tool[] = [
   {
     name: "read_jobs",
-    description: "Access and monitor data replication jobs that move data from source to destination. If not authenticated with CData Sync, you will be prompted for credentials. Jobs contain tasks defining what data to replicate. Use 'list' to see all jobs, 'get' for configuration details, 'status' to check current execution state, 'history' for past runs, or 'logs' for detailed execution logs. Note: Count action not supported by API - use 'list' and count results client-side. Jobs can run on-demand or on schedules using cron expressions.",
+    description: `Access and monitor data replication jobs that move data from source to destination.
+
+RETURNS:
+- list: Array of job objects with name, status, and configuration
+- get: Full job configuration details
+- status: Current execution state and progress
+- history: Past execution records
+- logs: Detailed execution logs for debugging
+
+COMMON ERRORS:
+- "Job not found" - Verify job name/ID
+- "No logs available" - Check log retention settings
+- "Access denied" - Verify user permissions`,
     inputSchema: {
       type: "object",
       properties: {
@@ -171,7 +187,11 @@ export const jobTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter expression. Note: Some complex filters may not work. Use simple expressions like \"Status eq 'Running'\" for best results."
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+LIMITED SUPPORT: contains(), startswith()
+NOT SUPPORTED: nested queries, computed properties
+Example: "Status eq 'Running' and Source eq 'MySQL'"`
         },
         select: {
           type: "string",
@@ -388,7 +408,16 @@ export const jobTools: Tool[] = [
   },
   {
     name: "cancel_job",
-    description: "Stop a currently running job. If not authenticated with CData Sync, you will be prompted for credentials. Cancellation may take time as current task completes. Partial data may remain in destination. Use job history to see what was processed before cancellation.",
+    description: `Stop a currently running job.
+
+RETURNS:
+- Success: Confirmation of cancellation request
+- Error: { code: -32603, message: "error details" }
+
+COMMON ERRORS:
+- "Job not running" - Job may have already completed
+- "Job not found" - Verify job name/ID
+- "Cancellation failed" - Job may be in uncancellable state`,
     inputSchema: {
       type: "object",
       properties: {
@@ -411,7 +440,16 @@ export const jobTools: Tool[] = [
 export const taskTools: Tool[] = [
   {
     name: "read_tasks",
-    description: "Access tasks within a specific job. If not authenticated with CData Sync, you will be prompted for credentials. Each task defines specific data to replicate - either a table or custom query. Tasks execute sequentially by index order (or in parallel if job configured). IMPORTANT: All actions require a jobName parameter. Use 'get' to see all tasks in a job. Tasks have unique TaskIds (large numbers - handle as strings).",
+    description: `Access tasks within a specific job. Each task defines specific data to replicate.
+
+REQUIRED: jobName parameter for all actions.
+
+RETURNS:
+- get: Array of task objects with TaskId, Query, Table, and Index
+
+COMMON ERRORS:
+- "Job not found" - Verify job name with read_jobs
+- "No tasks defined" - Job may be empty, add tasks with write_tasks`,
     inputSchema: {
       type: "object",
       properties: {
@@ -428,7 +466,10 @@ export const taskTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter expression. Note: Complex filters may not be supported."
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+LIMITED SUPPORT: contains(), startswith()
+NOT SUPPORTED: nested queries, computed properties`
         },
         select: {
           type: "string",
@@ -451,7 +492,19 @@ export const taskTools: Tool[] = [
   },
   {
     name: "write_tasks",
-    description: "Manage tasks within jobs. If not authenticated with CData Sync, you will be prompted for credentials. IMPORTANT: Tasks cannot be directly updated - to modify, delete then recreate. Use 'create' to add 'REPLICATE [TableName]' for full table copy using exact source table names, or custom SQL queries with filters/joins. Tasks execute by index order. Delete removes specific task. TaskIds are large numbers - always handle as strings to prevent precision loss.",
+    description: `Manage tasks within jobs. Tasks define what data to replicate.
+
+IMPORTANT: Use exact table names from get_connection_tables, including file extensions.
+
+RETURNS:
+- create: New task with assigned TaskId
+- update: Creates new task (cannot modify existing)
+- delete: Confirmation of task removal
+
+COMMON ERRORS:
+- "Invalid table name" - Use exact name from get_connection_tables
+- "Task not found" - Verify TaskId with read_tasks
+- "Invalid query syntax" - Check SQL syntax for provider`,
     inputSchema: {
       type: "object",
       properties: {
@@ -470,9 +523,9 @@ export const taskTools: Tool[] = [
           pattern: "^\\d+$",
           description: "Task ID as string for update/delete. Use exact value from read_tasks - don't convert numbers."
         },
-        table: {
+        tableName: {
           type: "string",
-          description: "Simple table name to replicate (alternative to query). Use exact name as reported by source connection. Automatically creates REPLICATE query."
+          description: "Exact table name as returned by get_connection_tables. Include file extensions for file-based sources (e.g., 'Account.csv' not 'Account'). Case-sensitive. Automatically creates REPLICATE query."
         },
         query: {
           type: "string",
@@ -493,7 +546,19 @@ export const taskTools: Tool[] = [
 export const queryTools: Tool[] = [
   {
     name: "execute_query",
-    description: "Execute pre-defined queries within a job context for testing or ad-hoc data operations. If not authenticated with CData Sync, you will be prompted for credentials. IMPORTANT: Can only execute queries that are already defined as tasks in the job - cannot run arbitrary SQL. Queries run in the job's source/destination connections. Use for testing existing job tasks or triggering specific job queries. Respects job settings like timeout and error handling.",
+    description: `Execute pre-defined queries within a job context for testing or ad-hoc operations.
+
+IMPORTANT: Can only execute queries already defined as tasks - cannot run arbitrary SQL.
+
+RETURNS:
+- Success: Query execution results with row counts and timing
+- Async: Confirmation that queries started
+- Error: { code: -32603, message: "error details" }
+
+COMMON ERRORS:
+- "Query not found" - Query must exist as task in job
+- "Job not found" - Verify job name/ID
+- "Execution failed" - Check query syntax and connections`,
     inputSchema: {
       type: "object",
       properties: {
@@ -530,7 +595,14 @@ export const queryTools: Tool[] = [
   },
   {
     name: "get_connection_tables",
-    description: "Discover available tables/views in a data source. If not authenticated with CData Sync, you will be prompted for credentials. Essential first step before creating jobs - shows what data is available to replicate. Use the exact table names returned by this function when creating REPLICATE tasks. Check both source and destination to ensure compatibility.",
+    description: `Discover available tables/views in a data source. Essential before creating jobs.
+
+RETURNS: Array of table names in exact format needed for tasks.
+
+COMMON ERRORS:
+- "Connection not found" - Verify connection name
+- "Access denied" - Check connection permissions
+- "No tables found" - Verify schema/catalog settings`,
     inputSchema: {
       type: "object",
       properties: {
@@ -576,7 +648,14 @@ export const queryTools: Tool[] = [
   },
   {
     name: "get_table_columns",
-    description: "Get column details for a specific table including names, data types, and key information. If not authenticated with CData Sync, you will be prompted for credentials. Use exact table name as reported by get_connection_tables. Essential for understanding table structure before writing queries, verifying schema compatibility, or planning data transformations.",
+    description: `Get column details for a specific table including names, data types, and keys.
+
+RETURNS: Array of column objects with name, type, nullable, and key information.
+
+COMMON ERRORS:
+- "Table not found" - Use exact name from get_connection_tables
+- "Connection not found" - Verify connection name
+- "Access denied" - Check table permissions`,
     inputSchema: {
       type: "object",
       properties: {
@@ -650,7 +729,22 @@ export const queryTools: Tool[] = [
 export const userTools: Tool[] = [
   {
     name: "read_users",
-    description: "Access CData Sync user accounts and their permissions. If not authenticated with CData Sync, you will be prompted for credentials. Users can have roles: cdata_admin (full access), cdata_standard (run jobs), cdata_job_creator (create/modify jobs), cdata_support (operate jobs). Use 'list' to see all users, 'get' for specific user details, or 'count' for total active users.",
+    description: `Access CData Sync user accounts and their permissions.
+
+ROLES:
+- cdata_admin: Full administrative access
+- cdata_standard: Run existing jobs
+- cdata_job_creator: Create and modify jobs
+- cdata_support: Operate jobs (start/stop)
+
+RETURNS:
+- list: Array of user objects
+- get: Detailed user information
+- count: Total number of users
+
+COMMON ERRORS:
+- "User not found" - Check username spelling
+- "Access denied" - Admin role required`,
     inputSchema: {
       type: "object",
       properties: {
@@ -667,7 +761,9 @@ export const userTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter (e.g., \"Active eq 'true'\" or \"Roles eq 'cdata_admin'\")"
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+Example: "Active eq 'true' and Roles eq 'cdata_admin'"`
         },
         select: {
           type: "string",
@@ -689,7 +785,19 @@ export const userTools: Tool[] = [
   },
   {
     name: "write_users",
-    description: "Create or update CData Sync users. If not authenticated with CData Sync, you will be prompted for credentials. Roles: cdata_admin (full admin), cdata_standard (run jobs), cdata_job_creator (create/edit jobs), cdata_support (operate jobs). Single or bulk creation supported. Users execute jobs with their permissions. Federation ID enables SSO. Cannot delete users via API.",
+    description: `Create or update CData Sync users.
+
+PASSWORD REQUIREMENTS: Must contain uppercase, lowercase, numbers, AND special characters.
+
+RETURNS:
+- create: New user details with confirmation
+- update: Updated user information
+
+COMMON ERRORS:
+- "Invalid password" - Must meet complexity requirements
+- "User already exists" - Use unique usernames
+- "Invalid role" - Use exact role values (cdata_admin, etc.)
+- "Bulk creation failed" - Check individual user errors`,
     inputSchema: {
       type: "object",
       properties: {
@@ -707,7 +815,7 @@ export const userTools: Tool[] = [
           type: "string",
           minLength: 8,
           maxLength: 128,
-          description: "User password (required for create). Store securely."
+          description: "Password must be 8+ characters with uppercase, lowercase, numbers, AND special characters (!@#$%^&*). Example: 'MyPass123@'. Required for create. Store securely."
         },
         roles: {
           type: "string",
@@ -743,7 +851,7 @@ export const userTools: Tool[] = [
                 type: "string",
                 minLength: 8,
                 maxLength: 128,
-                description: "Password"
+                description: "Password must contain uppercase, lowercase, numbers, AND special characters"
               },
               roles: {
                 type: "string",
@@ -812,7 +920,16 @@ export const historyTools: Tool[] = [
   },
   {
     name: "read_requests",
-    description: "Access API request logs for auditing, debugging, and compliance. If not authenticated with CData Sync, you will be prompted for credentials. Shows all API calls made to CData Sync including user, timestamp, endpoint, and response status. Use to track configuration changes, monitor API usage, or troubleshoot integration issues. Logs retained based on system settings.",
+    description: `Access API request logs for auditing, debugging, and compliance.
+
+RETURNS:
+- list: Array of request log entries
+- count: Total number of requests
+- get: Detailed request information
+
+COMMON ERRORS:
+- "Request not found" - Check request ID
+- "Logs purged" - Older logs may be deleted per retention policy`,
     inputSchema: {
       type: "object",
       properties: {
@@ -829,7 +946,9 @@ export const historyTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter (e.g., \"User eq 'admin' and Status ne '200'\" or \"Method eq 'DELETE'\")"
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+Example: "User eq 'admin' and Status ne '200'"`
         },
         select: {
           type: "string",
@@ -851,7 +970,14 @@ export const historyTools: Tool[] = [
   },
   {
     name: "write_requests",
-    description: "Delete API request log entries. If not authenticated with CData Sync, you will be prompted for credentials. Use for privacy compliance, log cleanup, or removing sensitive data. Only deletes log entries - does not undo the original operations. Requires appropriate permissions.",
+    description: `Delete API request log entries for privacy compliance or cleanup.
+
+RETURNS: Confirmation of log entry deletion.
+
+COMMON ERRORS:
+- "Request not found" - Verify request ID
+- "Access denied" - Admin permissions required
+- "Cannot delete" - Some logs may be protected`,
     inputSchema: {
       type: "object",
       properties: {
@@ -875,7 +1001,16 @@ export const historyTools: Tool[] = [
 export const transformationTools: Tool[] = [
   {
     name: "read_transformations",
-    description: "Access data transformations that run SQL in the destination after job completion (ELT pattern). If not authenticated with CData Sync, you will be prompted for credentials. Transformations clean, aggregate, or reshape data using the destination's processing power. Use 'list' to see all transformations, 'get' for details, or 'count' for total. Can run on schedule or trigger after specific jobs succeed.",
+    description: `Access data transformations that run SQL in the destination (ELT pattern).
+
+RETURNS:
+- list: Array of transformation objects
+- get: Detailed transformation configuration
+- count: Total number of transformations
+
+COMMON ERRORS:
+- "Transformation not found" - Check name spelling
+- "Access denied" - Verify permissions`,
     inputSchema: {
       type: "object",
       properties: {
@@ -892,7 +1027,9 @@ export const transformationTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter (e.g., \"Connection eq 'DataWarehouse'\" or \"TransformationTriggerMode eq 'AfterJob'\")"
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+Example: "Connection eq 'DataWarehouse' or TransformationTriggerMode eq 'AfterJob'"`
         },
         select: {
           type: "string",
@@ -914,7 +1051,17 @@ export const transformationTools: Tool[] = [
   },
   {
     name: "write_transformations",
-    description: "Create, update, or delete SQL transformations for ELT processing. If not authenticated with CData Sync, you will be prompted for credentials. Transformations run SQL queries in the destination database to clean, aggregate, or reshape data after loading. Can run on cron schedules or automatically after specific jobs succeed. Use different connection than job if needed (e.g., read from staging, write to analytics schema).",
+    description: `Create, update, or delete SQL transformations for ELT processing.
+
+RETURNS:
+- create: New transformation details
+- update: Updated configuration
+- delete: Confirmation of removal
+
+COMMON ERRORS:
+- "Invalid SQL syntax" - Check destination SQL dialect
+- "Connection not found" - Verify destination connection
+- "Trigger job not found" - Check job name for AfterJob mode`,
     inputSchema: {
       type: "object",
       properties: {
@@ -945,7 +1092,11 @@ export const transformationTools: Tool[] = [
         scheduledCron: {
           type: "string",
           pattern: "^([0-5]?\\d|\\*)\\s+([01]?\\d|2[0-3]|\\*)\\s+([0-2]?\\d|3[01]|\\*)\\s+([0]?\\d|1[0-2]|\\*)\\s+([0-6]|\\*)$",
-          description: "Unix cron expression for scheduled execution (e.g., '0 6 * * *' for 6 AM daily)"
+          description: `Unix cron format (minute hour day month weekday)
+Examples:
+- "0 6 * * *" - 6 AM daily
+- "30 */4 * * *" - Every 4 hours at :30
+- "0 0 * * 1" - Midnight every Monday`
         },
         triggerAfterJob: {
           type: "string",
@@ -990,7 +1141,13 @@ export const transformationTools: Tool[] = [
 export const certificateTools: Tool[] = [
   {
     name: "read_certificates",
-    description: "List SSL/TLS certificates used for secure connections. If not authenticated with CData Sync, you will be prompted for credentials. Certificates enable encrypted communication with HTTPS endpoints, APIs requiring client certificates, or secured database connections. Shows certificate details including expiration dates for compliance monitoring.",
+    description: `List SSL/TLS certificates used for secure connections.
+
+RETURNS: Array of certificate objects with name, subject, expiration, and thumbprint.
+
+COMMON ERRORS:
+- "No certificates found" - None uploaded yet
+- "Access denied" - Certificate access may be restricted`,
     inputSchema: {
       type: "object",
       properties: {
@@ -1002,7 +1159,9 @@ export const certificateTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter (e.g., \"ExpirationDays lt 30\" to find expiring certificates)"
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+Example: "ExpirationDays lt 30" to find expiring certificates`
         },
         select: {
           type: "string",
@@ -1024,7 +1183,15 @@ export const certificateTools: Tool[] = [
   },
   {
     name: "write_certificates",
-    description: "Upload SSL/TLS certificates for secure connections. If not authenticated with CData Sync, you will be prompted for credentials. Required for HTTPS sources, client certificate authentication, or encrypted database connections. Certificates must be base64-encoded. Monitor expiration dates to prevent connection failures.",
+    description: `Upload SSL/TLS certificates for secure connections.
+
+RETURNS: Certificate details with confirmation of upload.
+
+COMMON ERRORS:
+- "Invalid certificate format" - Must be base64-encoded
+- "Certificate expired" - Check expiration date
+- "Duplicate certificate" - Certificate already exists
+- "Invalid store type" - Check provider documentation`,
     inputSchema: {
       type: "object",
       properties: {
