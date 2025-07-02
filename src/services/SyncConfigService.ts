@@ -10,10 +10,16 @@ import { isValidUrl } from "../utils/typeGuards.js";
 export class SyncConfigService implements ISyncConfigService {
   private config: CDataConfig;
   private onConfigChange: ((newConfig: CDataConfig) => void) | undefined;
+  private validateWorkspace: ((workspaceId: string) => Promise<void>) | undefined;
 
-  constructor(initialConfig: CDataConfig, onConfigChange?: (newConfig: CDataConfig) => void) {
+  constructor(
+    initialConfig: CDataConfig, 
+    onConfigChange?: (newConfig: CDataConfig) => void,
+    validateWorkspace?: (workspaceId: string) => Promise<void>
+  ) {
     this.config = { ...initialConfig };
     this.onConfigChange = onConfigChange;
+    this.validateWorkspace = validateWorkspace;
   }
 
   async getCurrentConfig(): Promise<ConfigurationInfo> {
@@ -25,7 +31,8 @@ export class SyncConfigService implements ISyncConfigService {
       username: this.config.username || undefined,
       hasPassword: !!this.config.password,
       hasAuthToken: !!this.config.authToken,
-      isConfigured: !!hasAuth
+      isConfigured: !!hasAuth,
+      workspace: this.config.workspace || 'default'
     };
   }
 
@@ -96,6 +103,25 @@ export class SyncConfigService implements ISyncConfigService {
         // Clear token when setting basic auth
         delete newConfig.authToken;
       }
+    }
+
+    // Update workspace if provided
+    if (params.workspace !== undefined) {
+      const workspaceValue = params.workspace || 'default';
+      
+      // Validate workspace exists if it's not the default and we have a validator
+      if (workspaceValue !== 'default' && this.validateWorkspace) {
+        try {
+          await this.validateWorkspace(workspaceValue);
+        } catch (error: any) {
+          return {
+            success: false,
+            message: `Workspace validation failed: ${error.message}`
+          };
+        }
+      }
+      
+      newConfig.workspace = workspaceValue;
     }
 
     // Validate final configuration

@@ -144,6 +144,16 @@ export class JobService extends BaseService implements IJobService {
         jobData[`Query#${index + 1}`] = query;
       });
     }
+    
+    // Add workspace to request body for POST operations
+    // The API might expect WorkspaceId in the body for create operations
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      jobData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Job Create] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     return this.syncClient.post<JobInfo>("/jobs", jobData);
   }
@@ -179,6 +189,15 @@ export class JobService extends BaseService implements IJobService {
     
     requestData.WaitForResults = toBooleanString(params.waitForResults !== false);
     requestData.Timeout = (params.timeout || 0).toString();
+    
+    // Add workspace to request body for job execution
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      requestData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Job Execute] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     const result = await this.syncClient.post<any>("/executeJob", requestData);
     
@@ -197,6 +216,15 @@ export class JobService extends BaseService implements IJobService {
     const requestData: Record<string, string> = {};
     if (params.jobId) requestData.JobId = toIdString(params.jobId);
     if (params.jobName) requestData.JobName = params.jobName;
+    
+    // Add workspace to request body for job cancellation
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      requestData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Job Cancel] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     await this.syncClient.post<any>("/cancelJob", requestData);
     
@@ -215,6 +243,15 @@ export class JobService extends BaseService implements IJobService {
     if (params.jobId) requestData.JobId = toIdString(params.jobId);
     if (params.jobName) requestData.JobName = params.jobName;
     requestData.PushOnQuery = toBooleanString(params.pushOnQuery !== false);
+    
+    // Add workspace to request body for job status
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      requestData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Job Status] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     const result = await this.syncClient.post<any>("/getJobStatus", requestData);
     

@@ -280,6 +280,27 @@ export interface ConfigUpdateParams {
   username?: string;
   password?: string;
   clearAuth?: boolean;
+  workspace?: string;
+}
+
+// Workspace-specific parameters
+export interface WorkspaceListParams extends BaseListParams {}
+
+export interface WorkspaceGetParams {
+  name: string;
+}
+
+export interface WorkspaceCreateParams {
+  name: string;
+}
+
+export interface WorkspaceUpdateParams {
+  name: string;
+  newName?: string;
+}
+
+export interface WorkspaceDeleteParams {
+  name: string;
 }
 
 // Action-based parameter types for tools
@@ -298,4 +319,6 @@ export type RequestWriteAction = 'delete';
 export type HistoryReadAction = 'list' | 'count';
 export type CertificateReadAction = 'list';
 export type CertificateWriteAction = 'create';
+export type WorkspaceReadAction = 'list' | 'count' | 'get';
+export type WorkspaceWriteAction = 'create' | 'update' | 'delete';
 export type ConfigAction = 'get' | 'update';

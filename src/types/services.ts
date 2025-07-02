@@ -2,7 +2,7 @@
 
 import { 
   ConnectionInfo, JobInfo, TaskInfo, TransformationInfo, 
-  UserInfo, RequestInfo, HistoryInfo, CertificateInfo 
+  UserInfo, RequestInfo, HistoryInfo, CertificateInfo, WorkspaceInfo 
 } from './api.js';
 
 import {
@@ -18,6 +18,7 @@ import {
   RequestListParams, RequestDeleteParams,
   HistoryListParams, CertificateListParams, CertificateCreateParams,
   GetConnectionTablesParams, GetTableColumnsParams, GetJobTablesParams,
+  WorkspaceListParams, WorkspaceCreateParams, WorkspaceUpdateParams,
   ConfigUpdateParams,
   HttpMethod
 } from './parameters.js';
@@ -108,6 +109,17 @@ export interface IHistoryService {
 export interface ICertificateService {
   listCertificates(params?: CertificateListParams): Promise<CertificateInfo[]>;
   createCertificate(params: CertificateCreateParams): Promise<CertificateInfo>;
+}
+
+// Workspace Service Interface
+export interface IWorkspaceService {
+  listWorkspaces(params?: WorkspaceListParams): Promise<WorkspaceInfo[]>;
+  countWorkspaces(params?: Pick<WorkspaceListParams, 'filter'>): Promise<CountResponse>;
+  getWorkspaceByName(name: string): Promise<WorkspaceInfo>;
+  createWorkspace(params: WorkspaceCreateParams): Promise<WorkspaceInfo>;
+  updateWorkspace(params: WorkspaceUpdateParams): Promise<WorkspaceInfo>;
+  deleteWorkspace(name: string): Promise<void>;
+  getWorkspaceProperty(name: string, propertyName: string): Promise<string>;
 }
 
 // Sync Config Service Interface

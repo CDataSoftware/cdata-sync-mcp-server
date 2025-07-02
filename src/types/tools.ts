@@ -4,13 +4,14 @@ import {
   ConnectionReadAction, ConnectionWriteAction, JobReadAction, JobWriteAction,
   TaskReadAction, TaskWriteAction, TransformationReadAction, TransformationWriteAction,
   UserReadAction, UserWriteAction, RequestReadAction, RequestWriteAction,
-  HistoryReadAction, CertificateReadAction, CertificateWriteAction, ConfigAction,
+  HistoryReadAction, CertificateReadAction, CertificateWriteAction, 
+  WorkspaceReadAction, WorkspaceWriteAction, ConfigAction,
   VerbosityLevel, UserRole, JobType, TransformationTriggerMode
 } from './parameters.js';
 
 import {
   ConnectionInfo, JobInfo, TaskInfo, TransformationInfo, UserInfo,
-  RequestInfo, HistoryInfo, CertificateInfo
+  RequestInfo, HistoryInfo, CertificateInfo, WorkspaceInfo
 } from './api.js';
 
 import {
@@ -29,6 +30,7 @@ export interface ConnectionReadParams {
   skip?: number;
   providerName?: string;
   verbosity?: VerbosityLevel;
+  workspaceId?: string;
 }
 
 export interface ConnectionWriteParams {
@@ -38,6 +40,7 @@ export interface ConnectionWriteParams {
   connectionString?: string;
   verbosity?: VerbosityLevel;
   requireExplicitConnectionString?: boolean;
+  workspaceId?: string;
 }
 
 export interface JobReadParams {
@@ -51,6 +54,7 @@ export interface JobReadParams {
   orderby?: string;
   pushOnQuery?: boolean;
   days?: number;
+  workspaceId?: string;
 }
 
 export interface JobWriteParams {
@@ -67,6 +71,7 @@ export interface JobWriteParams {
   type?: JobType;
   queries?: string[];
   requireExplicitValues?: boolean;
+  workspaceId?: string;
   [key: string]: any; // For other job parameters
 }
 
@@ -77,6 +82,7 @@ export interface TaskReadParams {
   select?: string;
   top?: number;
   skip?: number;
+  workspaceId?: string;
 }
 
 export interface TaskWriteParams {
@@ -86,6 +92,7 @@ export interface TaskWriteParams {
   query?: string;
   table?: string;
   index?: string;
+  workspaceId?: string;
 }
 
 export interface TransformationReadParams {
@@ -95,6 +102,7 @@ export interface TransformationReadParams {
   select?: string;
   top?: number;
   skip?: number;
+  workspaceId?: string;
 }
 
 export interface TransformationWriteParams {
@@ -111,6 +119,7 @@ export interface TransformationWriteParams {
   emailErrorOnly?: boolean;
   verbosity?: VerbosityLevel;
   queries?: string[];
+  workspaceId?: string;
   [key: string]: any; // For other transformation parameters
 }
 
@@ -121,6 +130,7 @@ export interface UserReadParams {
   select?: string;
   top?: number;
   skip?: number;
+  workspaceId?: string;
 }
 
 export interface UserWriteParams {
@@ -139,6 +149,7 @@ export interface UserWriteParams {
     federationId?: string;
   }>;
   requireSecurePasswords?: boolean;
+  workspaceId?: string;
 }
 
 export interface RequestReadParams {
@@ -148,11 +159,13 @@ export interface RequestReadParams {
   select?: string;
   top?: number;
   skip?: number;
+  workspaceId?: string;
 }
 
 export interface RequestWriteParams {
   action: RequestWriteAction;
   id: string;
+  workspaceId?: string;
 }
 
 export interface HistoryReadParams {
@@ -162,6 +175,7 @@ export interface HistoryReadParams {
   top?: number;
   skip?: number;
   orderby?: string;
+  workspaceId?: string;
 }
 
 export interface CertificateReadParams {
@@ -170,6 +184,7 @@ export interface CertificateReadParams {
   select?: string;
   top?: number;
   skip?: number;
+  workspaceId?: string;
 }
 
 export interface CertificateWriteParams {
@@ -177,6 +192,24 @@ export interface CertificateWriteParams {
   name: string;
   data: string;
   storeType: string;
+  workspaceId?: string;
+}
+
+export interface WorkspaceReadParams {
+  action: WorkspaceReadAction;
+  name?: string;
+  id?: string;
+  filter?: string;
+  select?: string;
+  top?: number;
+  skip?: number;
+}
+
+export interface WorkspaceWriteParams {
+  action: WorkspaceWriteAction;
+  name?: string;
+  id?: string;
+  newName?: string;
 }
 
 export interface ConfigParams {
@@ -187,6 +220,7 @@ export interface ConfigParams {
   password?: string;
   clearAuth?: boolean;
   requireValidUrl?: boolean;
+  workspace?: string;
 }
 
 // Tool parameter type map
@@ -200,10 +234,12 @@ export interface ToolParamMap {
     jobId?: string;
     waitForResults?: boolean;
     timeout?: number;
+    workspaceId?: string;
   };
   'cancel_job': {
     jobName?: string;
     jobId?: string;
+    workspaceId?: string;
   };
   'read_tasks': TaskReadParams;
   'write_tasks': TaskWriteParams;
@@ -216,6 +252,8 @@ export interface ToolParamMap {
   'read_history': HistoryReadParams;
   'read_certificates': CertificateReadParams;
   'write_certificates': CertificateWriteParams;
+  'read_workspaces': WorkspaceReadParams;
+  'write_workspaces': WorkspaceWriteParams;
   'configure_sync_server': ConfigParams;
   'execute_query': {
     jobName?: string;
@@ -223,6 +261,7 @@ export interface ToolParamMap {
     queries: string[];
     waitForResults?: boolean;
     timeout?: number;
+    workspaceId?: string;
   };
   'get_connection_tables': {
     connectionName: string;
@@ -232,10 +271,12 @@ export interface ToolParamMap {
     includeSchema?: boolean;
     topTable?: number;
     skipTable?: number;
+    workspaceId?: string;
   };
   'get_table_columns': {
     connectionName: string;
     table: string;
+    workspaceId?: string;
   };
   'get_job_tables': {
     connectionName: string;
@@ -246,6 +287,7 @@ export interface ToolParamMap {
     includeSchema?: boolean;
     topTable?: number;
     skipTable?: number;
+    workspaceId?: string;
   };
 }
 
@@ -268,6 +310,8 @@ export type ToolResultMap = {
   'read_history': HistoryInfo[] | CountResponse;
   'read_certificates': CertificateInfo[];
   'write_certificates': CertificateInfo;
+  'read_workspaces': WorkspaceInfo[] | CountResponse | WorkspaceInfo;
+  'write_workspaces': WorkspaceInfo | DeleteResponse;
   'configure_sync_server': ConfigurationInfo | ConfigUpdateResponse;
   'execute_query': JobExecutionResult[];
   'get_connection_tables': TableInfo[];
@@ -334,6 +378,14 @@ export function isCertificateReadAction(action: string): action is CertificateRe
 
 export function isCertificateWriteAction(action: string): action is CertificateWriteAction {
   return ['create'].includes(action);
+}
+
+export function isWorkspaceReadAction(action: string): action is WorkspaceReadAction {
+  return ['list', 'count', 'get'].includes(action);
+}
+
+export function isWorkspaceWriteAction(action: string): action is WorkspaceWriteAction {
+  return ['create', 'update', 'delete'].includes(action);
 }
 
 export function isConfigAction(action: string): action is ConfigAction {

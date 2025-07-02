@@ -24,11 +24,24 @@ export interface RequestOptions {
 
 export class CDataSyncApiClient {
   private credentialPromptHandler?: () => Promise<{username?: string; password?: string; authToken?: string}>;
+  private currentWorkspace: string;
 
-  constructor(private config: CDataConfig) {}
+  constructor(private config: CDataConfig) {
+    this.currentWorkspace = config.workspace || "default";
+  }
 
   setCredentialPromptHandler(handler: () => Promise<{username?: string; password?: string; authToken?: string}>) {
     this.credentialPromptHandler = handler;
+  }
+
+  // Get current workspace ID
+  getWorkspace(): string {
+    return this.currentWorkspace;
+  }
+
+  // Set current workspace ID
+  setWorkspace(workspaceId: string): void {
+    this.currentWorkspace = workspaceId;
   }
 
   async makeRequest<T = any>(
@@ -39,7 +52,23 @@ export class CDataSyncApiClient {
   ): Promise<T> {
     // Remove the $oas suffix for actual API calls
     const baseUrl = (this.config.baseUrl || '').replace('/$oas', '').replace('/\/$/', '');
-    const url = `${baseUrl}${endpoint}`;
+    
+    // Add workspace parameter to the endpoint
+    const workspaceParam = `workspaceId=${encodeURIComponent(this.currentWorkspace)}`;
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const endpointWithWorkspace = `${endpoint}${separator}${workspaceParam}`;
+    
+    const url = `${baseUrl}${endpointWithWorkspace}`;
+    
+    // Debug logging for workspace context
+    if (process.env.DEBUG_WORKSPACE || process.env.DEBUG_HTTP) {
+      console.error(`[Workspace Debug] Current workspace: ${this.currentWorkspace}`);
+      console.error(`[Workspace Debug] Request URL: ${url}`);
+      console.error(`[Workspace Debug] Method: ${method}`);
+      if (data) {
+        console.error(`[Workspace Debug] Request data:`, JSON.stringify(data, null, 2));
+      }
+    }
     
     const headers = this.buildHeaders(options?.headers);
     const timeout = options?.timeout || 30000;
@@ -56,7 +85,7 @@ export class CDataSyncApiClient {
     };
 
     // Only add data for methods that support it
-    if (method !== 'GET' && method !== 'DELETE') {
+    if (method !== 'GET') {
       axiosConfig.data = data;
     }
 

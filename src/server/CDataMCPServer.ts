@@ -19,6 +19,7 @@ import { RequestService } from "../services/RequestService.js";
 import { UserService } from "../services/UserService.js";
 import { HistoryService } from "../services/HistoryService.js";
 import { CertificateService } from "../services/CertificateService.js";
+import { WorkspaceService } from "../services/WorkspaceService.js";
 import { SyncConfigService } from "../services/SyncConfigService.js";
 import { SSEServer } from "../sse/SSEServer.js";
 import { getAllTools } from "../tools/toolDefinitions.js";
@@ -32,6 +33,7 @@ import {
   UserReadParams, UserWriteParams,
   RequestReadParams, RequestWriteParams,
   HistoryReadParams, CertificateReadParams, CertificateWriteParams,
+  WorkspaceReadParams, WorkspaceWriteParams,
   ConfigParams,
   isConnectionReadAction, isConnectionWriteAction,
   isJobReadAction, isJobWriteAction,
@@ -40,6 +42,7 @@ import {
   isUserReadAction, isUserWriteAction,
   isRequestReadAction, isRequestWriteAction,
   isHistoryReadAction, isCertificateReadAction, isCertificateWriteAction,
+  isWorkspaceReadAction, isWorkspaceWriteAction,
   isConfigAction
 } from "../types/tools.js";
 import { assertDefined } from "../utils/typeGuards.js";
@@ -57,6 +60,7 @@ export class CDataMCPServer {
   private userService: UserService;
   private historyService: HistoryService;
   private certificateService: CertificateService;
+  private workspaceService: WorkspaceService;
   private sseServer?: SSEServer;
   private httpTransport?: StreamableHttpTransport;
   private stdioTransport?: StdioServerTransport;
@@ -75,11 +79,6 @@ export class CDataMCPServer {
       );
     });
     
-    // Create config service with callback to update all services
-    this.syncConfigService = new SyncConfigService(config, (newConfig) => {
-      this.handleConfigChange(newConfig);
-    });
-    
     // Initialize all services
     this.connectionService = new ConnectionService(this.syncClient);
     this.jobService = new JobService(this.syncClient);
@@ -89,6 +88,14 @@ export class CDataMCPServer {
     this.userService = new UserService(this.syncClient);
     this.historyService = new HistoryService(this.syncClient);
     this.certificateService = new CertificateService(this.syncClient);
+    this.workspaceService = new WorkspaceService(this.syncClient);
+    
+    // Create config service with callback to update all services and workspace validation
+    this.syncConfigService = new SyncConfigService(
+      config, 
+      (newConfig) => this.handleConfigChange(newConfig),
+      (workspaceId) => this.validateWorkspace(workspaceId)
+    );
 
     this.server = new Server(
       {
@@ -135,6 +142,7 @@ export class CDataMCPServer {
     this.userService = new UserService(this.syncClient);
     this.historyService = new HistoryService(this.syncClient);
     this.certificateService = new CertificateService(this.syncClient);
+    this.workspaceService = new WorkspaceService(this.syncClient);
     
     // Broadcast configuration change event if SSE server is running
     if (this.sseServer) {
@@ -146,6 +154,52 @@ export class CDataMCPServer {
     }
     
     this.log(`CData Sync connection reconfigured: ${newConfig.baseUrl}`);
+  }
+
+  // Helper method to validate workspace exists
+  private async validateWorkspace(workspaceId: string): Promise<void> {
+    try {
+      // Try to get the workspace to validate it exists
+      await this.workspaceService.getWorkspaceById(workspaceId);
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error(`Workspace with ID '${workspaceId}' not found. Use read_workspaces tool to list available workspaces.`);
+      }
+      // Re-throw other errors (like auth failures)
+      throw error;
+    }
+  }
+
+  // Helper method to execute operations with workspace override
+  private async withWorkspaceOverride<T>(
+    workspaceId: string | undefined,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    if (workspaceId) {
+      // Validate workspace exists before using it
+      await this.validateWorkspace(workspaceId);
+      
+      // Use the BaseService workspace override pattern
+      const originalWorkspace = this.syncClient.getWorkspace();
+      try {
+        this.syncClient.setWorkspace(workspaceId);
+        if (process.env.DEBUG_WORKSPACE) {
+          console.error(`[Workspace Override] Switching from '${originalWorkspace}' to '${workspaceId}'`);
+        }
+        return await operation();
+      } finally {
+        this.syncClient.setWorkspace(originalWorkspace);
+        if (process.env.DEBUG_WORKSPACE) {
+          console.error(`[Workspace Override] Restored to '${originalWorkspace}'`);
+        }
+      }
+    } else {
+      // No workspace override, use current workspace
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Workspace Override] Using current workspace: '${this.syncClient.getWorkspace()}'`);
+      }
+      return await operation();
+    }
   }
 
   private setupMCPHandlers(): void {
@@ -265,7 +319,9 @@ export class CDataMCPServer {
       if (args.jobId !== undefined) {
         args.jobId = toIdString(args.jobId);
       }
-      const result = await this.jobService.executeJob(args);
+      const result = await this.withWorkspaceOverride(args.workspaceId, async () => {
+        return this.jobService.executeJob(args);
+      });
       if (this.sseServer) {
         this.sseServer.broadcastEvent("job_executed", {
           jobName: args.jobName || args.jobId,
@@ -280,7 +336,9 @@ export class CDataMCPServer {
       if (args.jobId !== undefined) {
         args.jobId = toIdString(args.jobId);
       }
-      const result = await this.jobService.cancelJob(args);
+      const result = await this.withWorkspaceOverride(args.workspaceId, async () => {
+        return this.jobService.cancelJob(args);
+      });
       if (this.sseServer) {
         this.sseServer.broadcastEvent("job_cancelled", {
           jobName: args.jobName || args.jobId,
@@ -333,6 +391,14 @@ export class CDataMCPServer {
     }
     if (toolName === "write_certificates") {
       return this.handleCertificateWrite(args as CertificateWriteParams);
+    }
+
+    // Workspace Management
+    if (toolName === "read_workspaces") {
+      return this.handleWorkspaceRead(args as WorkspaceReadParams);
+    }
+    if (toolName === "write_workspaces") {
+      return this.handleWorkspaceWrite(args as WorkspaceWriteParams);
     }
 
     // Query and Schema Tools
@@ -398,147 +464,154 @@ export class CDataMCPServer {
 
   // Connection handlers with full type safety
   private async handleConnectionRead(args: ConnectionReadParams): Promise<any> {
-    const { action } = args;
+    const { action, workspaceId } = args;
     
     if (!isConnectionReadAction(action)) {
       throw new Error(`Invalid connection read action: ${action}`);
     }
 
-    switch (action) {
-      case "list": {
-        const { filter, select, top, skip } = args;
-        return this.connectionService.listConnections({ 
-          ...(filter !== undefined && { filter }),
-          ...(select !== undefined && { select }),
-          ...(top !== undefined && { top }),
-          ...(skip !== undefined && { skip })
-        });
+    return this.withWorkspaceOverride(workspaceId, async () => {
+      switch (action) {
+        case "list": {
+          const { filter, select, top, skip } = args;
+          return this.connectionService.listConnections({ 
+            ...(filter !== undefined && { filter }),
+            ...(select !== undefined && { select }),
+            ...(top !== undefined && { top }),
+            ...(skip !== undefined && { skip })
+          });
+        }
+        
+        case "count": {
+          const { filter } = args;
+          return this.connectionService.countConnections({ filter });
+        }
+        
+        case "get": {
+          assertDefined(args.name, "Connection name is required for get action");
+          return this.connectionService.getConnection(args.name);
+        }
+        
+        case "test": {
+          assertDefined(args.name, "Connection name is required for test action");
+          const { name, providerName, verbosity } = args;
+          return this.connectionService.testConnection({ name, providerName, verbosity });
+        }
+        
+        default: {
+          const _exhaustive: never = action;
+          throw new Error(`Unhandled action: ${_exhaustive}`);
+        }
       }
-      
-      case "count": {
-        const { filter } = args;
-        return this.connectionService.countConnections({ filter });
-      }
-      
-      case "get": {
-        assertDefined(args.name, "Connection name is required for get action");
-        return this.connectionService.getConnection(args.name);
-      }
-      
-      case "test": {
-        assertDefined(args.name, "Connection name is required for test action");
-        const { name, providerName, verbosity } = args;
-        return this.connectionService.testConnection({ name, providerName, verbosity });
-      }
-      
-      default: {
-        const _exhaustive: never = action;
-        throw new Error(`Unhandled action: ${_exhaustive}`);
-      }
-    }
+    });
   }
 
   private async handleConnectionWrite(args: ConnectionWriteParams): Promise<any> {
-    const { action, name } = args;
+    const { action, name, workspaceId } = args;
     
     if (!isConnectionWriteAction(action)) {
       throw new Error(`Invalid connection write action: ${action}`);
     }
 
-    switch (action) {
-      case "create": {
-        assertDefined(args.providerName, "Provider name is required for create");
-        assertDefined(args.connectionString, "Connection string is required for create");
+    return this.withWorkspaceOverride(workspaceId, async () => {
+      switch (action) {
+        case "create": {
+          assertDefined(args.providerName, "Provider name is required for create");
+          assertDefined(args.connectionString, "Connection string is required for create");
+          
+          const { providerName, connectionString, verbosity } = args;
+          return this.connectionService.createConnection({
+            name,
+            providerName,
+            connectionString,
+            verbosity
+          });
+        }
         
-        const { providerName, connectionString, verbosity } = args;
-        return this.connectionService.createConnection({
-          name,
-          providerName,
-          connectionString,
-          verbosity
-        });
+        case "update": {
+          const { connectionString, verbosity } = args;
+          return this.connectionService.updateConnection({
+            name,
+            connectionString,
+            verbosity
+          });
+        }
+        
+        case "delete": {
+          return this.connectionService.deleteConnection({ name });
+        }
+        
+        default: {
+          const _exhaustive: never = action;
+          throw new Error(`Unhandled action: ${_exhaustive}`);
+        }
       }
-      
-      case "update": {
-        const { connectionString, verbosity } = args;
-        return this.connectionService.updateConnection({
-          name,
-          connectionString,
-          verbosity
-        });
-      }
-      
-      case "delete": {
-        return this.connectionService.deleteConnection({ name });
-      }
-      
-      default: {
-        const _exhaustive: never = action;
-        throw new Error(`Unhandled action: ${_exhaustive}`);
-      }
-    }
+    });
   }
 
   // Job handlers with full type safety
   private async handleJobRead(args: JobReadParams): Promise<any> {
-    const { action } = args;
+    const { action, workspaceId } = args;
     
     if (!isJobReadAction(action)) {
       throw new Error(`Invalid job read action: ${action}`);
     }
 
-    switch (action) {
-      case "list": {
-        const { filter, select, top, skip, orderby } = args;
-        return this.jobService.listJobs({ filter, select, top, skip, orderby });
-      }
-      
-      case "count": {
-        const { filter } = args;
-        return this.jobService.countJobs({ filter });
-      }
-      
-      case "get": {
-        assertDefined(args.jobName, "Job name is required for get action");
-        return this.jobService.getJob(args.jobName);
-      }
-      
-      case "status": {
-        if (!args.jobName && !args.jobId) {
-          throw new Error("Either jobName or jobId is required for status action");
+    return this.withWorkspaceOverride(workspaceId, async () => {
+      switch (action) {
+        case "list": {
+          const { filter, select, top, skip, orderby } = args;
+          return this.jobService.listJobs({ filter, select, top, skip, orderby });
         }
-        const { jobName, jobId, pushOnQuery } = args;
-        return this.jobService.getJobStatus({ jobName, jobId, pushOnQuery });
-      }
-      
-      case "history": {
-        const { filter, select, top, skip, orderby } = args;
-        return this.jobService.getJobHistory({ filter, select, top, skip, orderby });
-      }
-      
-      case "logs": {
-        if (!args.jobName && !args.jobId) {
-          throw new Error("Either jobName or jobId is required for logs action");
+        
+        case "count": {
+          const { filter } = args;
+          return this.jobService.countJobs({ filter });
         }
-        const { jobName, jobId, days } = args;
-        return this.jobService.getJobLogs({ jobName, jobId, days });
+        
+        case "get": {
+          assertDefined(args.jobName, "Job name is required for get action");
+          return this.jobService.getJob(args.jobName);
+        }
+        
+        case "status": {
+          if (!args.jobName && !args.jobId) {
+            throw new Error("Either jobName or jobId is required for status action");
+          }
+          const { jobName, jobId, pushOnQuery } = args;
+          return this.jobService.getJobStatus({ jobName, jobId, pushOnQuery });
+        }
+        
+        case "history": {
+          const { filter, select, top, skip, orderby } = args;
+          return this.jobService.getJobHistory({ filter, select, top, skip, orderby });
+        }
+        
+        case "logs": {
+          if (!args.jobName && !args.jobId) {
+            throw new Error("Either jobName or jobId is required for logs action");
+          }
+          const { jobName, jobId, days } = args;
+          return this.jobService.getJobLogs({ jobName, jobId, days });
+        }
+        
+        default: {
+          const _exhaustive: never = action;
+          throw new Error(`Unhandled action: ${_exhaustive}`);
+        }
       }
-      
-      default: {
-        const _exhaustive: never = action;
-        throw new Error(`Unhandled action: ${_exhaustive}`);
-      }
-    }
+    });
   }
 
   private async handleJobWrite(args: JobWriteParams): Promise<any> {
-    const { action, jobName } = args;
+    const { action, jobName, workspaceId } = args;
     
     if (!isJobWriteAction(action)) {
       throw new Error(`Invalid job write action: ${action}`);
     }
 
-    switch (action) {
+    return this.withWorkspaceOverride(workspaceId, async () => {
+      switch (action) {
       case "create": {
         assertDefined(args.source, "Source is required for job creation");
         assertDefined(args.destination, "Destination is required for job creation");
@@ -552,46 +625,49 @@ export class CDataMCPServer {
         return this.jobService.updateJob(args as any);
       }
       
-      case "delete": {
-        return this.jobService.deleteJob({ jobName });
+        case "delete": {
+          return this.jobService.deleteJob({ jobName });
+        }
+        
+        default: {
+          const _exhaustive: never = action;
+          throw new Error(`Unhandled action: ${_exhaustive}`);
+        }
       }
-      
-      default: {
-        const _exhaustive: never = action;
-        throw new Error(`Unhandled action: ${_exhaustive}`);
-      }
-    }
+    });
   }
 
   // Task handlers with full type safety
   private async handleTaskRead(args: TaskReadParams): Promise<any> {
-    const { action } = args;
+    const { action, workspaceId } = args;
     
     if (!isTaskReadAction(action)) {
       throw new Error(`Invalid task read action: ${action}`);
     }
 
-    switch (action) {
-      case "list": {
-        const { filter, select, top, skip } = args;
-        return this.taskService.listTasks({ filter, select, top, skip });
+    return this.withWorkspaceOverride(workspaceId, async () => {
+      switch (action) {
+        case "list": {
+          const { filter, select, top, skip } = args;
+          return this.taskService.listTasks({ filter, select, top, skip });
+        }
+        
+        case "count": {
+          const { filter } = args;
+          return this.taskService.countTasks({ filter });
+        }
+        
+        case "get": {
+          assertDefined(args.jobName, "Job name is required for get action");
+          return this.taskService.getTask(args.jobName, args.select);
+        }
+        
+        default: {
+          const _exhaustive: never = action;
+          throw new Error(`Unhandled action: ${_exhaustive}`);
+        }
       }
-      
-      case "count": {
-        const { filter } = args;
-        return this.taskService.countTasks({ filter });
-      }
-      
-      case "get": {
-        assertDefined(args.jobName, "Job name is required for get action");
-        return this.taskService.getTask(args.jobName, args.select);
-      }
-      
-      default: {
-        const _exhaustive: never = action;
-        throw new Error(`Unhandled action: ${_exhaustive}`);
-      }
-    }
+    });
   }
 
   private async handleTaskWrite(args: TaskWriteParams): Promise<any> {
@@ -878,6 +954,82 @@ export class CDataMCPServer {
         
         const { name, data, storeType } = args;
         return this.certificateService.createCertificate({ name, data, storeType });
+      }
+      
+      default: {
+        const _exhaustive: never = action;
+        throw new Error(`Unhandled action: ${_exhaustive}`);
+      }
+    }
+  }
+
+  // Workspace handlers
+  private async handleWorkspaceRead(args: WorkspaceReadParams): Promise<any> {
+    const { action } = args;
+    
+    if (!isWorkspaceReadAction(action)) {
+      throw new Error(`Invalid workspace read action: ${action}`);
+    }
+
+    switch (action) {
+      case "list":
+        return this.workspaceService.listWorkspaces(args);
+      
+      case "count":
+        return this.workspaceService.countWorkspaces(args);
+      
+      case "get": {
+        if (args.id) {
+          return this.workspaceService.getWorkspaceById(args.id);
+        } else if (args.name) {
+          return this.workspaceService.getWorkspaceByName(args.name);
+        } else {
+          throw new Error("Either workspace name or ID is required for get action");
+        }
+      }
+      
+      default: {
+        const _exhaustive: never = action;
+        throw new Error(`Unhandled action: ${_exhaustive}`);
+      }
+    }
+  }
+
+  private async handleWorkspaceWrite(args: WorkspaceWriteParams): Promise<any> {
+    const { action } = args;
+    
+    if (!isWorkspaceWriteAction(action)) {
+      throw new Error(`Invalid workspace write action: ${action}`);
+    }
+
+    switch (action) {
+      case "create": {
+        assertDefined(args.name, "Workspace name is required");
+        return this.workspaceService.createWorkspace({ name: args.name });
+      }
+      
+      case "update": {
+        assertDefined(args.newName, "New workspace name is required for update");
+        
+        if (args.id) {
+          return this.workspaceService.updateWorkspaceById(args.id, args.newName);
+        } else if (args.name) {
+          return this.workspaceService.updateWorkspace({ name: args.name, newName: args.newName });
+        } else {
+          throw new Error("Either workspace name or ID is required for update action");
+        }
+      }
+      
+      case "delete": {
+        if (args.id) {
+          await this.workspaceService.deleteWorkspaceById(args.id);
+          return { success: true, message: `Workspace with ID '${args.id}' deleted successfully` };
+        } else if (args.name) {
+          await this.workspaceService.deleteWorkspace(args.name);
+          return { success: true, message: `Workspace '${args.name}' deleted successfully` };
+        } else {
+          throw new Error("Either workspace name or ID is required for delete action");
+        }
       }
       
       default: {

@@ -27,6 +27,7 @@ export interface ConfigurationInfo {
   hasPassword: boolean;
   hasAuthToken: boolean;
   isConfigured: boolean;
+  workspace: string;
 }
 
 export interface ConfigUpdateResponse extends SuccessResponse {

@@ -67,6 +67,15 @@ export class TaskService extends BaseService implements ITaskService {
     if (params.query) taskData.Query = params.query;
     if (params.table) taskData.Table = params.table;
     if (params.index) taskData.Index = params.index;
+    
+    // Add workspace to request body for POST operations
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      taskData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Task Create] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     return this.syncClient.post<TaskInfo>("/tasks", taskData);
   }

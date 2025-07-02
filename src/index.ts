@@ -11,6 +11,7 @@ const config: CDataConfig = {
   authToken: process.env.CDATA_AUTH_TOKEN,
   username: process.env.CDATA_USERNAME,
   password: process.env.CDATA_PASSWORD,
+  workspace: process.env.CDATA_WORKSPACE || "default", // Workspace ID
 };
 
 // Determine transport mode (default to stdio)

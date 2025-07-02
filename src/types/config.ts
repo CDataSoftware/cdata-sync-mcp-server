@@ -4,4 +4,5 @@ export interface CDataConfig {
   username?: string | undefined;
   password?: string | undefined;
   authToken?: string | undefined;
+  workspace?: string; // Workspace ID for context (defaults to "default")
 }

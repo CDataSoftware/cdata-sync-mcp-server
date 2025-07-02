@@ -102,6 +102,15 @@ export class TransformationService extends BaseService implements ITransformatio
     if (params.automaticJobRetry !== undefined) {
       transformationData.AutomaticJobRetry = toBooleanString(params.automaticJobRetry);
     }
+    
+    // Add workspace to request body for POST operations
+    const currentWorkspace = this.getWorkspace();
+    if (currentWorkspace && currentWorkspace !== 'default') {
+      transformationData.WorkspaceId = currentWorkspace;
+      if (process.env.DEBUG_WORKSPACE) {
+        console.error(`[Transformation Create] Adding WorkspaceId to body: ${currentWorkspace}`);
+      }
+    }
 
     return this.syncClient.post<TransformationInfo>("/transformations", transformationData);
   }

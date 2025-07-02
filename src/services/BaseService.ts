@@ -14,34 +14,57 @@ export class ConfigurationError extends Error {
 export abstract class BaseService {
   constructor(protected syncClient: CDataSyncApiClient) {}
 
+  // Get current workspace from the API client
+  protected getWorkspace(): string {
+    return this.syncClient.getWorkspace();
+  }
+
+  // Temporarily use a different workspace for a single operation
+  protected async withWorkspace<T>(workspace: string, operation: () => Promise<T>): Promise<T> {
+    const originalWorkspace = this.syncClient.getWorkspace();
+    try {
+      this.syncClient.setWorkspace(workspace);
+      return await operation();
+    } finally {
+      this.syncClient.setWorkspace(originalWorkspace);
+    }
+  }
+
   // Wrapper for API calls that provides helpful configuration errors
   protected async callWithConfigCheck<T>(apiCall: () => Promise<T>): Promise<T> {
     try {
       return await apiCall();
     } catch (error: any) {
+      const workspaceContext = ` [workspace: ${this.getWorkspace()}]`;
+      
       // Check if this looks like a configuration error
       if (error.code === 'ECONNREFUSED') {
         throw new ConfigurationError(
-          "Cannot connect to CData Sync server. Please verify the base URL is correct and CData Sync is running. Use 'configure_sync_server' tool to update the base URL."
+          `Cannot connect to CData Sync server. Please verify the base URL is correct and CData Sync is running. Use 'configure_sync_server' tool to update the base URL.${workspaceContext}`
         );
       }
       
       if (error.code === 'ENOTFOUND') {
         throw new ConfigurationError(
-          "CData Sync server hostname not found. Please verify the base URL is correct. Use 'configure_sync_server' tool to update the base URL."
+          `CData Sync server hostname not found. Please verify the base URL is correct. Use 'configure_sync_server' tool to update the base URL.${workspaceContext}`
         );
       }
       
       if (error.response?.status === 401) {
         throw new ConfigurationError(
-          "Authentication failed. Please verify your credentials are correct. Use 'configure_sync_server' tool to update authentication (authToken or username/password)."
+          `Authentication failed. Please verify your credentials are correct. Use 'configure_sync_server' tool to update authentication (authToken or username/password).${workspaceContext}`
         );
       }
       
       if (error.response?.status === 404 && error.config?.url?.includes('/api.rsc')) {
         throw new ConfigurationError(
-          "CData Sync API endpoint not found. Please verify the base URL is correct and includes the correct path. Use 'configure_sync_server' tool to update the base URL."
+          `CData Sync API endpoint not found. Please verify the base URL is correct and includes the correct path. Use 'configure_sync_server' tool to update the base URL.${workspaceContext}`
         );
+      }
+      
+      // Add workspace context to other errors before re-throwing
+      if (error.message && !error.message.includes('[workspace:')) {
+        error.message = `${error.message}${workspaceContext}`;
       }
       
       // Re-throw original error if it's not a configuration issue
@@ -139,7 +162,7 @@ export abstract class BaseService {
       // 204 No Content is success for DELETE operations
       return {
         success: true,
-        message: `${resourceName || this.getResourceName()} deleted successfully`
+        message: `${resourceName || this.getResourceName()} deleted successfully [workspace: ${this.getWorkspace()}]`
       };
     });
   }

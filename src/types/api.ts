@@ -115,6 +115,11 @@ export interface CertificateInfo {
   ConnectorIds?: string;
 }
 
+export interface WorkspaceInfo {
+  Id: string;
+  Name: string;
+}
+
 export interface CDataError {
   error: {
     code: string;

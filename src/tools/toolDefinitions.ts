@@ -18,7 +18,7 @@ export interface Tool {
 export const configurationTools: Tool[] = [
   {
     name: "configure_sync_server",
-    description: "Configure the MCP server's connection to CData Sync. If not authenticated, you will be prompted for credentials. Use 'get' to view current configuration including auth type and connection status, or 'update' to modify connection settings. CRITICAL: Configuration changes take effect immediately and will reconnect all services. Test new credentials before applying. Cannot be used to view passwords or auth tokens for security reasons.",
+    description: "Configure the MCP server's connection to CData Sync. If not authenticated, you will be prompted for credentials. Use 'get' to view current configuration including auth type, connection status, and workspace context, or 'update' to modify connection settings including the default workspace. CRITICAL: Configuration changes take effect immediately and will reconnect all services. Test new credentials before applying. Cannot be used to view passwords or auth tokens for security reasons. The workspace setting determines which workspace context is used for all operations unless overridden in individual tool calls.",
     inputSchema: {
       type: "object",
       properties: {
@@ -53,6 +53,10 @@ export const configurationTools: Tool[] = [
         clearAuth: {
           type: "boolean",
           description: "Remove all authentication credentials. WARNING: This will disconnect the MCP server from CData Sync. You must provide new credentials to restore functionality."
+        },
+        workspace: {
+          type: "string",
+          description: "Workspace ID for all operations. Use 'default' for the default workspace, or provide a workspace UUID (e.g., '60d9c6e1-6583-4ff1-b44e-11b2d1964f16'). This sets the workspace context for all subsequent operations unless overridden. You can find workspace IDs using the read_workspaces tool."
         }
       },
       required: ["action"]
@@ -110,6 +114,10 @@ Example: "ProviderName eq 'CData Salesforce' and ConnectionState eq 'Successful'
           type: "string",
           enum: ["1", "2", "3", "4"],
           description: "Log detail level for 'test' action: 1=Error, 2=Info, 3=Transfer, 4=Verbose"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -142,6 +150,10 @@ Example: "ProviderName eq 'CData Salesforce' and ConnectionState eq 'Successful'
           type: "string",
           enum: ["1", "2", "3", "4"],
           description: "Default log level for this connection: 1=Error, 2=Info (default), 3=Transfer, 4=Verbose"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action", "name"]
@@ -221,6 +233,10 @@ Example: "Status eq 'Running' and Source eq 'MySQL'"`
         pushOnQuery: {
           type: "boolean",
           description: "Include detailed query status (default: true)"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -370,6 +386,10 @@ Example: "Status eq 'Running' and Source eq 'MySQL'"`
         otherCacheOptions: {
           type: "string",
           description: "Additional provider-specific options (comma-separated key=value pairs)"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action", "jobName"]
@@ -402,6 +422,10 @@ Example: "Status eq 'Running' and Source eq 'MySQL'"`
           maximum: 86400,
           default: 0,
           description: "Maximum seconds to wait for completion (0 = no timeout)"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -430,6 +454,10 @@ COMMON ERRORS:
           type: "string",
           pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
           description: "Alternative: UUID of the running job to cancel"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -485,6 +513,10 @@ NOT SUPPORTED: nested queries, computed properties`
           type: "number",
           minimum: 0,
           description: "Results to skip for pagination"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["jobName"]
@@ -535,6 +567,10 @@ COMMON ERRORS:
           type: "string",
           pattern: "^[1-9]\\d{0,3}$",
           description: "Execution order (1, 2, 3...). Tasks run sequentially by index unless parallel processing enabled."
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action", "jobName"]
@@ -588,6 +624,10 @@ COMMON ERRORS:
           maximum: 86400,
           default: 0,
           description: "Maximum seconds to wait (0 = unlimited)"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["queries"]
@@ -641,6 +681,10 @@ COMMON ERRORS:
           type: "number",
           minimum: 0,
           description: "Tables to skip for pagination"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["connectionName"]
@@ -667,6 +711,10 @@ COMMON ERRORS:
         table: {
           type: "string",
           description: "Table name using exact name from get_connection_tables (include schema if needed, e.g., 'dbo.Customers')"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["connectionName", "table"]
@@ -718,6 +766,10 @@ COMMON ERRORS:
           type: "number",
           minimum: 0,
           description: "Skip for pagination"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["connectionName", "jobId"]
@@ -779,6 +831,10 @@ Example: "Active eq 'true' and Roles eq 'cdata_admin'"`
           type: "number",
           minimum: 0,
           description: "Results to skip"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -871,6 +927,10 @@ COMMON ERRORS:
             required: ["user", "password"]
           },
           description: "Array of users for bulk creation. Efficient for adding multiple users at once."
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action"]
@@ -914,6 +974,10 @@ export const historyTools: Tool[] = [
           type: "number",
           minimum: 0,
           description: "Records to skip for pagination"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -964,6 +1028,10 @@ Example: "User eq 'admin' and Status ne '200'"`
           type: "number",
           minimum: 0,
           description: "Results to skip"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -990,6 +1058,10 @@ COMMON ERRORS:
           type: "string",
           pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
           description: "Request ID to delete (UUID format)"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action", "id"]
@@ -1045,6 +1117,10 @@ Example: "Connection eq 'DataWarehouse' or TransformationTriggerMode eq 'AfterJo
           type: "number",
           minimum: 0,
           description: "Results to skip"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -1130,6 +1206,10 @@ Examples:
           type: "string",
           maxLength: 200,
           description: "Email subject line"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       },
       required: ["action", "transformationName"]
@@ -1177,6 +1257,10 @@ Example: "ExpirationDays lt 30" to find expiring certificates`
           type: "number",
           minimum: 0,
           description: "Results to skip"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
         }
       }
     }
@@ -1213,6 +1297,117 @@ COMMON ERRORS:
         storeType: {
           type: "string",
           description: "Certificate store type (provider-specific, e.g., 'CurrentUser', 'LocalMachine')"
+        },
+        workspaceId: {
+          type: "string",
+          description: "Workspace ID to use for this operation. Overrides the default workspace. Use 'default' for the default workspace or a UUID for specific workspaces."
+        }
+      },
+      required: ["action", "name"]
+    }
+  }
+];
+
+// Workspace Tools
+export const workspaceTools: Tool[] = [
+  {
+    name: "read_workspaces",
+    description: `Access CData Sync workspaces for multi-tenant organization.
+
+WORKSPACES:
+- Organize jobs, connections, and transformations
+- Isolate resources between teams/projects
+- Support multi-tenant deployments
+
+RETURNS:
+- list: Array of workspace objects with Id and Name
+- get: Detailed workspace information
+- count: Total number of workspaces
+
+COMMON ERRORS:
+- "Workspace not found" - Check workspace name spelling
+- "Access denied" - Requires appropriate permissions`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["list", "count", "get"],
+          default: "list",
+          description: "Operation to perform"
+        },
+        name: {
+          type: "string",
+          pattern: "^[a-zA-Z0-9_][a-zA-Z0-9_\\-\\.]{0,49}$",
+          description: "Workspace name for 'get' action. Case-sensitive. Either 'name' or 'id' is required for get action."
+        },
+        id: {
+          type: "string",
+          description: "Workspace ID (UUID) for 'get' action. Alternative to 'name' parameter. More efficient when you know the workspace ID."
+        },
+        filter: {
+          type: "string",
+          description: `OData filter expression.
+SUPPORTED: eq, ne, gt, lt, ge, le, and, or
+Example: "Name eq 'Production'"`
+        },
+        select: {
+          type: "string",
+          description: "Properties to include (e.g., 'Id,Name')"
+        },
+        top: {
+          type: "number",
+          minimum: 1,
+          maximum: 1000,
+          description: "Maximum results"
+        },
+        skip: {
+          type: "number",
+          minimum: 0,
+          description: "Results to skip"
+        }
+      }
+    }
+  },
+  {
+    name: "write_workspaces",
+    description: `Create, update, or delete CData Sync workspaces.
+
+WORKSPACE NAMES:
+- Must be unique across the system
+- Cannot contain special characters except _ - .
+- Case-sensitive
+
+RETURNS:
+- create: New workspace details
+- update: Updated workspace information
+- delete: Success confirmation
+
+COMMON ERRORS:
+- "Workspace already exists" - Use unique names
+- "Workspace in use" - Cannot delete workspace with active resources
+- "Invalid name" - Check naming requirements`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["create", "update", "delete"],
+          description: "Operation to perform"
+        },
+        name: {
+          type: "string",
+          pattern: "^[a-zA-Z0-9_][a-zA-Z0-9_\\-\\.]{0,49}$",
+          description: "Workspace name. Required for create action, optional for update/delete if 'id' is provided."
+        },
+        id: {
+          type: "string",
+          description: "Workspace ID (UUID). Can be used instead of 'name' for update and delete actions. More efficient when you know the workspace ID."
+        },
+        newName: {
+          type: "string",
+          pattern: "^[a-zA-Z0-9_][a-zA-Z0-9_\\-\\.]{0,49}$",
+          description: "New name for 'update' action"
         }
       },
       required: ["action", "name"]
@@ -1231,7 +1426,8 @@ export function getAllTools(): Tool[] {
     ...userTools,
     ...historyTools,
     ...transformationTools,
-    ...certificateTools
+    ...certificateTools,
+    ...workspaceTools
   ];
 }
 
