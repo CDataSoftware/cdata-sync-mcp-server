@@ -65,11 +65,20 @@ export class UserService extends BaseService implements IUserService {
       userData.FederationId = params.federationId;
     }
 
+    // Add workspace to request body if not default
+    const workspace = this.getWorkspace();
+    if (workspace && workspace !== 'default') {
+      userData.WorkspaceId = workspace;
+    }
+
     // Debug logging
     if (process.env.MCP_MODE || process.env.DEBUG_USERS) {
       console.error("=== CREATE SINGLE USER DEBUG ===");
       console.error("Input params:", JSON.stringify(params, null, 2));
       console.error("Prepared userData:", JSON.stringify(userData, null, 2));
+      if (workspace && workspace !== 'default') {
+        console.error("Workspace context:", workspace);
+      }
       console.error("================================");
     }
 
@@ -111,9 +120,18 @@ export class UserService extends BaseService implements IUserService {
       requestData[`Active${suffix}`] = user.active !== false ? "true" : "false";
     });
 
+    // Add workspace to request body if not default
+    const workspace = this.getWorkspace();
+    if (workspace && workspace !== 'default') {
+      requestData.WorkspaceId = workspace;
+    }
+
     // Debug logging
     if (process.env.MCP_MODE || process.env.DEBUG_USERS) {
       console.error("Prepared requestData:", JSON.stringify(requestData, null, 2));
+      if (workspace && workspace !== 'default') {
+        console.error("Workspace context:", workspace);
+      }
       console.error("===================================");
     }
 

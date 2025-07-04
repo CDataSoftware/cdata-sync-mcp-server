@@ -415,13 +415,22 @@ export class CDataMCPServer {
       return result;
     }
     if (toolName === "get_connection_tables") {
-      return this.connectionService.getConnectionTables(args);
+      const { workspaceId } = args;
+      return this.withWorkspaceOverride(workspaceId, async () => {
+        return this.connectionService.getConnectionTables(args);
+      });
     }
     if (toolName === "get_table_columns") {
-      return this.connectionService.getTableColumns(args);
+      const { workspaceId } = args;
+      return this.withWorkspaceOverride(workspaceId, async () => {
+        return this.connectionService.getTableColumns(args);
+      });
     }
     if (toolName === "get_job_tables") {
-      return this.jobService.getJobTables(args);
+      const { workspaceId } = args;
+      return this.withWorkspaceOverride(workspaceId, async () => {
+        return this.jobService.getJobTables(args);
+      });
     }
 
     throw new Error(`Unknown tool: ${toolName}`);
@@ -639,7 +648,9 @@ export class CDataMCPServer {
 
   // Task handlers with full type safety
   private async handleTaskRead(args: TaskReadParams): Promise<any> {
-    const { action, workspaceId } = args;
+    const { workspaceId } = args;
+    // Apply default action if not provided
+    const action = args.action || "get";
     
     if (!isTaskReadAction(action)) {
       throw new Error(`Invalid task read action: ${action}`);

@@ -28,11 +28,17 @@ export class CertificateService extends BaseService implements ICertificateServi
     assertDefined(params.data, "Certificate data is required");
     assertDefined(params.storeType, "Store type is required");
     
-    const certificateData = {
+    const certificateData: Record<string, any> = {
       Name: params.name,
       Data: params.data,
       StoreType: params.storeType,
     };
+    
+    // Add workspace to request body if not default
+    const workspace = this.getWorkspace();
+    if (workspace && workspace !== 'default') {
+      certificateData.WorkspaceId = workspace;
+    }
     
     return this.syncClient.post<CertificateInfo>("/certificates", certificateData);
   }

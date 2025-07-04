@@ -243,7 +243,7 @@ Example: "Status eq 'Running' and Source eq 'MySQL'"`
   },
   {
     name: "write_jobs",
-    description: "Create, modify, or delete data replication jobs. If not authenticated with CData Sync, you will be prompted for credentials. Jobs orchestrate moving data from source to destination with options for scheduling, transformations, error handling, and notifications. IMPORTANT: Use table names exactly as reported by the source connection - do not modify names or extensions. Job types: 1=Standard replication, 2=Sync All tables, 3=Load Folder, 7=Change Data Capture, 10=Reverse ETL. Cannot modify/delete running jobs. Add tasks after creating the job.",
+    description: "Create, modify, or delete data replication jobs. If not authenticated with CData Sync, you will be prompted for credentials. Jobs orchestrate moving data from source to destination with options for scheduling, transformations, error handling, and notifications. IMPORTANT: Use table names exactly as reported by the source connection - do not modify names or extensions. Job types: Standard=Basic replication, ReplicateAll=Sync all tables, LoadFolder=File-based, ChangeDataCapture=CDC, ReverseETL=Reverse sync, EnhancedChangeDataCapture=Enhanced CDC. Cannot modify/delete running jobs. Add tasks after creating the job.",
     inputSchema: {
       type: "object",
       properties: {
@@ -266,9 +266,9 @@ Example: "Status eq 'Running' and Source eq 'MySQL'"`
           description: "Destination connection name (required for create). Must be an existing, tested connection."
         },
         type: {
-          type: "number",
-          enum: [1, 2, 3, 7, 10],
-          description: "Job type: 1=Standard, 2=Sync All tables, 3=Load Folder, 7=CDC (if supported), 10=Reverse ETL"
+          type: "string",
+          enum: ["Standard", "ReplicateAll", "LoadFolder", "ChangeDataCapture", "ReverseETL", "EnhancedChangeDataCapture"],
+          description: "Job type: Standard=Basic replication, ReplicateAll=Sync all tables, LoadFolder=File-based, ChangeDataCapture=CDC, ReverseETL=Reverse sync, EnhancedChangeDataCapture=Enhanced CDC"
         },
         queries: {
           type: "array",
@@ -483,9 +483,9 @@ COMMON ERRORS:
       properties: {
         action: {
           type: "string",
-          enum: ["get"],
+          enum: ["list", "count", "get"],
           default: "get",
-          description: "Operation: 'get' shows all tasks for the job. For counts, count the returned results client-side."
+          description: "Operation: list all, count tasks, or get tasks for a specific job. For most cases, use 'get' to retrieve tasks by job name."
         },
         jobName: {
           type: "string",
@@ -561,7 +561,7 @@ COMMON ERRORS:
         },
         query: {
           type: "string",
-          description: "SQL query for the task. Use 'REPLICATE [TableName]' for full table using exact source names, or write custom SQL with filters/joins"
+          description: "SQL query for the task. Use 'REPLICATE [TableName]' for full table using exact source names, or write custom SQL with filters/joins. ⚠️ IMPORTANT: For flat files, always wrap table names in brackets to handle periods correctly: 'REPLICATE [Account.csv]' NOT 'REPLICATE Account.csv'"
         },
         index: {
           type: "string",
@@ -954,7 +954,7 @@ export const historyTools: Tool[] = [
         },
         filter: {
           type: "string",
-          description: "OData filter. Note: Complex filters may not work. Use simple expressions like \"JobName eq 'Daily_Sync'\" for best results."
+          description: "⚠️ KNOWN ISSUE: OData filters currently fail due to API limitation. Use 'top' parameter and filter results client-side instead. Example: Use top=100 then filter by JobName manually."
         },
         orderby: {
           type: "string",
@@ -1433,7 +1433,7 @@ export function getAllTools(): Tool[] {
 
 // Export tool usage guidelines for documentation
 export const toolUsageGuidelines = {
-  tableNames: "Always use exact table names as reported by get_connection_tables. Do not modify names or file extensions.",
+  tableNames: "Always use exact table names as reported by get_connection_tables. Do not modify names or file extensions. For flat files with periods (e.g., 'Account.csv'), always wrap in brackets: [Account.csv]",
   filtering: "Use simple OData filter expressions for best compatibility. Complex filters may not be supported by all endpoints.",
   taskIds: "Handle TaskIds as strings to prevent precision loss with large numbers.",
   jobNames: "Use descriptive, unique names following the pattern: Purpose_Frequency_Target (e.g., 'Daily_Sales_Sync')",

@@ -95,6 +95,12 @@ export class ConnectionService extends BaseService implements IConnectionService
       
       // Optional parameters
       if (params.verbosity) connectionData.Verbosity = params.verbosity;
+      
+      // Add workspace to request body if not default
+      const workspace = this.getWorkspace();
+      if (workspace && workspace !== 'default') {
+        connectionData.WorkspaceId = workspace;
+      }
 
       return this.syncClient.post<ConnectionInfo>("/connections", connectionData);
     });
@@ -137,6 +143,12 @@ export class ConnectionService extends BaseService implements IConnectionService
         TableOrView: params.tableOrView || "ALL",
       };
 
+      // Add workspace context - explicit workspaceId parameter takes precedence
+      const workspace = params.workspaceId || this.getWorkspace();
+      if (workspace && workspace !== 'default') {
+        requestData.WorkspaceId = workspace;
+      }
+
       // Optional parameters
       if (params.schema) requestData.Schema = params.schema;
       
@@ -169,10 +181,16 @@ export class ConnectionService extends BaseService implements IConnectionService
 
   async getTableColumns(params: GetTableColumnsParams): Promise<ColumnInfo[]> {
     return this.callWithConfigCheck(async () => {
-      const requestData = {
+      const requestData: Record<string, any> = {
         ConnectionName: params.connectionName,
         Table: params.table,
       };
+
+      // Add workspace context - explicit workspaceId parameter takes precedence
+      const workspace = params.workspaceId || this.getWorkspace();
+      if (workspace && workspace !== 'default') {
+        requestData.WorkspaceId = workspace;
+      }
 
       const result = await this.syncClient.post<ApiResponse<ColumnInfo>>("/getConnectionTableColumns", requestData);
       return this.extractArray(result);

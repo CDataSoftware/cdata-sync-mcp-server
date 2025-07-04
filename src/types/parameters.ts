@@ -258,11 +258,13 @@ export interface GetConnectionTablesParams {
   includeSchema?: boolean;
   topTable?: number;
   skipTable?: number;
+  workspaceId?: string;
 }
 
 export interface GetTableColumnsParams {
   connectionName: string;
   table: string;
+  workspaceId?: string;
 }
 
 export interface GetJobTablesParams extends GetConnectionTablesParams {
