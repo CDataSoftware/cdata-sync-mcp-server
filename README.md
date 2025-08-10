@@ -58,6 +58,7 @@ A comprehensive **Model Context Protocol (MCP) server** for [CData Sync](https:/
    # Edit with your CData Sync details
    CDATA_BASE_URL="http://localhost:8181/api.rsc"
    CDATA_AUTH_TOKEN="your-auth-token"
+   CDATA_WORKSPACE="your-workspace-uuid"  # Optional: scope operations to specific workspace
    MCP_TRANSPORT_MODE="both"  # stdio, http, or both
    ```
 
@@ -78,6 +79,7 @@ The **stdio transport** is designed for local desktop usage with the Claude Desk
         "MCP_TRANSPORT_MODE": "stdio",
         "CDATA_AUTH_TOKEN": "your-token-here",
         "CDATA_BASE_URL": "http://localhost:8181/api.rsc",
+        "CDATA_WORKSPACE": "your-workspace-uuid-here",
         "DISABLE_SSE": "true"
       }
     }
@@ -268,6 +270,7 @@ npm run test:coverage
 | `CDATA_AUTH_TOKEN` | API authentication token | - |
 | `CDATA_USERNAME` | Basic auth username (alternative to token) | - |
 | `CDATA_PASSWORD` | Basic auth password (alternative to token) | - |
+| `CDATA_WORKSPACE` | Workspace UUID to scope all operations (optional) | - |
 | `MCP_TRANSPORT_MODE` | Transport mode: `stdio`, `http`, or `both` | `stdio` |
 | `MCP_HTTP_PORT` | HTTP transport port | `3000` |
 | `MCP_HTTP_PATH` | HTTP transport base path | `/mcp/v1` |
